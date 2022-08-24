@@ -1,7 +1,7 @@
 FROM maven:3.8.6-openjdk-18-slim
 WORKDIR /app
-COPY . .
-
-RUN mvn package
-RUN chmod 755 ./entry.sh
-ENTRYPOINT ["./entry.sh"]
+COPY ./.mvn ./mvn
+COPY ./mvnw ./
+COPY ./pom.xml ./
+# Note that src is mounted as a volume in docker ignore.
+ENTRYPOINT mvn spring-boot:run

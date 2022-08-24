@@ -1,0 +1,10 @@
+{"groups" : [
+    {"letter":"A","teams":[{"name": "Qatar"},{"name":"Ecuador"},{"name":"Senegal"},{"name":"Netherlands"}]},
+    {"letter":"B","teams":[{"name": "England"},{"name":"Iran"},{"name": "USA"},{"name": "Wales"}]},
+    {"letter":"B","teams":[{"name": "Saudi Arabia"}, {"name": "Mexico"}, {"name": "Argentina"}, {"name": "Poland"}]},
+    {"letter":"D","teams":[{"name": "France"}, {"name": "Australia"}, {"name": "Denmark"}, {"name": "Tunisia"}]},
+    {"letter":"E","teams":[{"name": "Spain"}, {"name": "Costa Rica"}, {"name": "Germany"},{"name":"Japan"}]},
+    {"letter":"F","teams":[{"name": "Belgium"},{"name": "Canada"},{"name": "Morocco"},{"name": "Croatia"}]},
+    {"letter":"G","teams":[{"name": "Brazil"},{"name": "Serbia"},{"name": "Switzerland"},{"name": "Cameroon"}]},
+    {"letter":"H","teams":[{"name": "Portugal"},{"name": "Ghana"},{"name": "Korea Republic"},{"name": "Uruguay"}]}
+]}
