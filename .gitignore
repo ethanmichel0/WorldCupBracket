@@ -1,0 +1,3 @@
+**/node_modules
+**/.svelte_kit
+**/.env

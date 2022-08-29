@@ -1,0 +1,47 @@
+# Based off of https://github.com/bezkoder/docker-compose-nodejs-mongodb/tree/master/bezkoder-app
+# https://www.bezkoder.com/docker-compose-nodejs-mongodb/
+
+version: "3.8"
+services:
+  mongodb:
+    image: mongo:5.0.2
+    restart: unless-stopped
+    ports:
+      - 27017:27017
+    volumes:
+      - db:/data/db
+
+  spring-boot:
+    image: bracket_backend
+    build:
+      context: ./backend
+      dockerfile: Dev.Dockerfile
+    depends_on:
+      - mongodb
+    ports:
+      - 6868:8080
+    stdin_open: true
+    tty: true
+    volumes: 
+      - ./backend/src:/app/src
+    environment:
+      - type=dev
+    env_file:
+      - ./.env
+  frontend-svelte:
+    image: bracket_frontend
+    build:
+      context: ./frontend-svelte
+      dockerfile: Dev.Dockerfile
+    ports:
+      - 1234:8080
+    stdin_open: true
+    tty: true
+    environment:
+      - type=dev
+    env_file:
+      - ./.env
+
+
+volumes:
+  db:
