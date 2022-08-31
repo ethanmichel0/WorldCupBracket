@@ -24,10 +24,9 @@ services:
     tty: true
     volumes: 
       - ./backend/src:/app/src
-    environment:
-      - type=dev
     env_file:
       - ./.env
+      
   frontend-svelte:
     image: bracket_frontend
     build:
@@ -37,10 +36,10 @@ services:
       - 1234:8080
     stdin_open: true
     tty: true
-    environment:
-      - type=dev
-    env_file:
-      - ./.env
+    volumes:
+      - ./frontend-svelte/src:/app/src
+    depends_on:
+      - spring-boot
 
 
 volumes:

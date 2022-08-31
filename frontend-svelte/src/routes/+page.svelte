@@ -1,2 +1,17 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
+<script>
+    import { TabContent, TabPane } from 'sveltestrap';
+    /** @type {import('./$types').PageData} */
+    export let data;
+</script>
+<TabContent>
+    <TabPane tabId="alpha" tab="Standings" active>
+      <h2>Alpha</h2>
+      <img
+        alt="Alpha Flight"
+        src="https://upload.wikimedia.org/wikipedia/en/4/49/Alpha_Flight_cast_picture_%28John_Byrne_era%29.gif"
+      />
+    </TabPane>
+  </TabContent>
+
+
+
