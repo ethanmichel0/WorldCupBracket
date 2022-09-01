@@ -1,8 +1,8 @@
 FROM node:16-slim
 WORKDIR /app
-ARG VITE_ISPROD
-ENV VITE_ISPROD=$VITE_ISPROD
 COPY package.json .
+COPY node_modules/@popperjs ./node_modules/@popperjs
+#https://github.com/bestguy/sveltestrap/issues/463
 RUN npm install --legacy-peer-deps
 COPY svelte.config.js .
 COPY vite.config.js .

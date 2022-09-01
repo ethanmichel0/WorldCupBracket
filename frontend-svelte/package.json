@@ -28,7 +28,6 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"bootstrap": "^5.2.0",
 		"sveltestrap": "^5.9.0"
 	}
 }
