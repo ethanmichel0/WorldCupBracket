@@ -1,19 +1,38 @@
 <script>
-    import { TabContent, TabPane } from 'sveltestrap';
+    import { TabContent, TabPane, Table, Image} from 'sveltestrap';
     /** @type {import('./$types').PageData} */
     export let data;
-    console.log("test")
 </script>
-<h1>TESTTTT</h1>
 <TabContent>
+    {data}
     <TabPane tabId="alpha" tab="Standings" active>
-      <h2>Alpha</h2>
-      <img
-        alt="Alpha Flight"
-        src="https://upload.wikimedia.org/wikipedia/en/4/49/Alpha_Flight_cast_picture_%28John_Byrne_era%29.gif"
-      />
-      
-    </TabPane>
+    {#each Object.values(data) as group}
+    <Table bordered>
+      <thead>
+        <tr>
+          <th>Position</th>
+          <th>Team</th>
+          <th>Logo</th>
+          <th>Wins</th>
+          <th>Losses</th>
+          <th>Goals For</th>
+          <th>Goals Against</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each group.teams as team, pos}
+          <tr>
+            <th scope="row">{pos+1}</th>
+            <td>{team.name}</td>
+            <td><Image src={team.logo} height="100px" width="100px"}></Image></td>
+            <td>safda</td>
+          </tr>
+        {/each}
+        <tr>
+      </tbody>
+    </Table>
+    {/each}
+  </TabPane>
   </TabContent>
 
 

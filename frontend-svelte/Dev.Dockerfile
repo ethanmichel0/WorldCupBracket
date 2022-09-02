@@ -1,8 +1,7 @@
 FROM node:16-slim
 WORKDIR /app
 COPY package.json .
-COPY node_modules/@popperjs ./node_modules/@popperjs
-#https://github.com/bestguy/sveltestrap/issues/463
+COPY package-lock.json .
 RUN npm install --legacy-peer-deps
 COPY svelte.config.js .
 COPY vite.config.js .
