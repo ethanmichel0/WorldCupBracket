@@ -11,11 +11,12 @@ import org.springframework.web.bind.annotation.PathVariable
 
 import java.util.Optional
 
+// TODO add other response codes besides 200
 @RestController
 class TeamController(
     private val teamRepository: TeamRepository, 
     private val gameService: GameService) {
-    @GetMapping("/api/{teamId}") // TODO make sure that dynamic path configured correctly
+    @GetMapping("/api/{teamId}")
     fun getTeam(@PathVariable teamId: String) : TeamWithUpcomingGames{
         return TeamWithUpcomingGames(
             teamRepository.findById(teamId).unwrap(),

@@ -21,6 +21,7 @@ class GameService(private val mongoTemplate: MongoTemplate) {
 
         // NOTE that there appears to be a bug here. for some reason calling "is()" as an instance method of criteria
         // is not workingwith the error message "expected element". Pretty sure this is a bug so double negation is needed
+        // TODO fill out bug report
 
         team1CriteriaNameMatch = team1CriteriaNameMatch.isNull()
         criteria.andOperator(
