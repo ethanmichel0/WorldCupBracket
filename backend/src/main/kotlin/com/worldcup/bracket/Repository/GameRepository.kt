@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 
 interface GameRepository : MongoRepository<Game,String>{
-
+    fun findByOrderByDateAsc() : List<Game>
 }

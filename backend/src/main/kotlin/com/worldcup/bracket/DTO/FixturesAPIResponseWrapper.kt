@@ -1,6 +1,4 @@
 package com.worldcup.bracket.DTO
-
-import com.google.gson.annotations.SerializedName
 import com.worldcup.bracket.Entity.Team
 
 data class FixturesAPIResponseWrapper(

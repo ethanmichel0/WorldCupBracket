@@ -44,8 +44,8 @@ class DataInitializer(
             val path: String = Paths.get("").toAbsolutePath().toString()
             val jsonString: String = File(path + "/src/groups.json").readText(Charsets.UTF_8)
             val groupsWrapper : GroupsWrapper = Gson().fromJson(jsonString, GroupsWrapper::class.java)
+            val allGames = mutableListOf<Game>()
             for (group in groupsWrapper.groups) {
-                val gamesInGroup = mutableListOf<Game>()
                 for (i in 0 until group.teams.size) {
                     for (j in 1 until group.teams.size) 
                         if(group.teams[i] != group.teams[j]) {
@@ -66,16 +66,15 @@ class DataInitializer(
                                 group.teams[j].id = matchingFixture.teams.home.id
                                 group.teams[i].id = matchingFixture.teams.away.id
                             }
-                            gamesInGroup.add(Game(group.teams[i],group.teams[j],false,Date(matchingFixture.fixture.timestamp.toLong()),matchingFixture.fixture.id))
+                            println(group)
+                            println("is group")
+                            allGames.add(Game(group.teams[i],group.teams[j],false,Date(matchingFixture.fixture.timestamp.toLong()),group,matchingFixture.fixture.id))
                         }
                 }
-                group.games = gamesInGroup
             }
             var allTeams = mutableListOf<Team>()
-            var allGames : ArrayList<Game> = ArrayList<Game>()
             for (group in groupsWrapper.groups) {
                 allTeams.addAll(group.teams)
-                allGames.let{list1 -> group.games?.let(list1::addAll) }
             }
 
             groupRepository.saveAll(groupsWrapper.groups)

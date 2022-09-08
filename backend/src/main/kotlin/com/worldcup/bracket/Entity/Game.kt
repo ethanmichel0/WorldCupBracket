@@ -12,5 +12,6 @@ data class Game(
     var team2: Team, 
     var knockout: Boolean, 
     var date: Date,
-    @Id 
+    var group: Group,
+    @Id
     var fixtureId: String)

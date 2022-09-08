@@ -1,14 +1,6 @@
-import { getBaseUrl } from '$lib/utils.js';
- 
-/** @type {import('../../.svelte-kit/types/src/routes/$types').PageServerLoad} */
-export async function load({ params }) {
-    const response = await fetch(`${getBaseUrl()}/api/groups`);
+import { redirect } from '@sveltejs/kit';
 
-    if (!response.ok) {
-        throw new Error(`Error! status: ${response.status}`);
-    }
-
-    let responseJSON = response.json()
-
-    return responseJSON
+/** @type {import('./$types').LayoutServerLoad} */
+export function load({ _ }) {
+		throw redirect(307, '/standings');
 }
