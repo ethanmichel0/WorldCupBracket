@@ -66,7 +66,7 @@ class DataInitializer(
                                 group.teams[j].id = matchingFixture.teams.home.id
                                 group.teams[i].id = matchingFixture.teams.away.id
                             }
-                            allGames.add(Game(group.teams[i],group.teams[j],false,Date(matchingFixture.fixture.timestamp.toLong()),group,matchingFixture.fixture.id))
+                            allGames.add(Game(group.teams[i],group.teams[j],false,matchingFixture.fixture.timestamp.toLong(),matchingFixture.fixture.id))
                         }
                 }
             }

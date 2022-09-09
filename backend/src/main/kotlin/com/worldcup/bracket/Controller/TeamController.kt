@@ -8,21 +8,25 @@ import com.worldcup.bracket.repository.GameRepository
 import com.worldcup.bracket.DTO.TeamWithUpcomingGames
 import com.worldcup.bracket.Service.GameService
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 
 import java.util.Optional
+import java.util.Date
 
-// TODO add other response codes besides 200
 @RestController
 class TeamController(
     private val teamRepository: TeamRepository, 
-    private val gameService: GameService) {
-    @GetMapping("/api/{teamId}")
-    fun getTeam(@PathVariable teamId: String) : TeamWithUpcomingGames{
-        return TeamWithUpcomingGames(
-            teamRepository.findById(teamId).unwrap(),
-            gameService.getAllGamesFromTeamUpcoming(teamId),
-            gameService.getAllGamesFromTeamPast(teamId)
-        )
+    private val gameRepository: GameRepository) {
+    @GetMapping("/api/teams/{teamId}")
+    fun getTeam(@PathVariable teamId: String) : ResponseEntity<TeamWithUpcomingGames>{
+        val team = teamRepository.findById(teamId).unwrap()
+        if (team == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
+        return ResponseEntity.status(HttpStatus.OK).body(TeamWithUpcomingGames(
+            team,
+            gameRepository.getAllGamesFromTeamUpcoming(teamId, System.currentTimeMillis()/1000),
+            gameRepository.getAllGamesFromTeamPast(teamId, System.currentTimeMillis()/1000)
+        ))
     }
 }
 
