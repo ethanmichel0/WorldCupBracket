@@ -8,7 +8,11 @@ import com.worldcup.bracket.Entity.Team
 data class Game(
     var team1: Team, 
     var team2: Team, 
-    var knockout: Boolean, 
+    var group: Char, 
     var date: Long,
-    @Id
-    var fixtureId: String)
+    @Id 
+    var fixtureId: String) {
+        var homeScore : Int = 0;
+        var awayScore : Int = 0;
+        var currentMinute : Int = 0;
+    }

@@ -9,7 +9,7 @@
     <NavLink href="/standings">Standings</NavLink>
   </NavItem>
   <NavItem>
-    <NavLink href="#">Upcoming</NavLink>
+    <NavLink href="/upcoming">Upcoming</NavLink>
   </NavItem>
 </Nav>
 <slot></slot>

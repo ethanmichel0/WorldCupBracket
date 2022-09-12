@@ -34,51 +34,55 @@ class DataInitializer(
     ) : ApplicationRunner {
 
     override fun run (args: ApplicationArguments) {
-        if (this.groupRepository.findAll().size == 0) { // only initialize groups one time
-            // get all fixtures from football api
-            val request = BuildNewRequest(Constants.FIXTURES_API,"GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
-
-            val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-            val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
-            
-            val path: String = Paths.get("").toAbsolutePath().toString()
-            val jsonString: String = File(path + "/src/groups.json").readText(Charsets.UTF_8)
-            val groupsWrapper : GroupsWrapper = Gson().fromJson(jsonString, GroupsWrapper::class.java)
-            val allGames = mutableListOf<Game>()
-            for (group in groupsWrapper.groups) {
-                for (i in 0 until group.teams.size) {
-                    for (j in 1 until group.teams.size) 
-                        if(group.teams[i] != group.teams[j]) {
-                            // find matching game from response from api (responseWrapper) so that we can get time of game, and logo
-                            // for each team
-                            val matchingFixture = responseWrapper.response.filter{(it.teams.home == group.teams[i] && 
-                                    it.teams.away == group.teams[j])
-                                    || (it.teams.away == group.teams[i] 
-                                    && it.teams.home == group.teams[j])}[0]
-                            if (matchingFixture.teams.home == group.teams[i]) {
-                                group.teams[i].logo = matchingFixture.teams.home.logo
-                                group.teams[j].logo = matchingFixture.teams.away.logo
-                                group.teams[i].id = matchingFixture.teams.home.id
-                                group.teams[j].id = matchingFixture.teams.away.id
-                            } else {
-                                group.teams[j].logo = matchingFixture.teams.home.logo
-                                group.teams[i].logo = matchingFixture.teams.away.logo
-                                group.teams[j].id = matchingFixture.teams.home.id
-                                group.teams[i].id = matchingFixture.teams.away.id
-                            }
-                            allGames.add(Game(group.teams[i],group.teams[j],false,matchingFixture.fixture.timestamp.toLong(),matchingFixture.fixture.id))
-                        }
-                }
-            }
-            var allTeams = mutableListOf<Team>()
-            for (group in groupsWrapper.groups) {
-                allTeams.addAll(group.teams)
-            }
-
-            groupRepository.saveAll(groupsWrapper.groups)
-            teamRepository.saveAll(allTeams)
-            gameRepository.saveAll(allGames)
+        if (this.groupRepository.findAll().size != 0) {
+            this.groupRepository.deleteAll()
+            this.teamRepository.deleteAll()
+            this.gameRepository.deleteAll()
         }
+
+        // get all fixtures from football api
+        val request = BuildNewRequest(Constants.FIXTURES_API,"GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
+
+        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
+        
+        val path: String = Paths.get("").toAbsolutePath().toString()
+        val jsonString: String = File(path + "/src/groups.json").readText(Charsets.UTF_8)
+        val groupsWrapper : GroupsWrapper = Gson().fromJson(jsonString, GroupsWrapper::class.java)
+        val allGames = mutableListOf<Game>()
+        for (group in groupsWrapper.groups) {
+            for (i in 0 until group.teams.size) {
+                for (j in 1 until group.teams.size) 
+                    if(group.teams[i] != group.teams[j]) {
+                        // find matching game from response from api (responseWrapper) so that we can get time of game, and logo
+                        // for each team
+                        val matchingFixture = responseWrapper.response.filter{(it.teams.home == group.teams[i] && 
+                                it.teams.away == group.teams[j])
+                                || (it.teams.away == group.teams[i] 
+                                && it.teams.home == group.teams[j])}[0]
+                        if (matchingFixture.teams.home == group.teams[i]) {
+                            group.teams[i].logo = matchingFixture.teams.home.logo
+                            group.teams[j].logo = matchingFixture.teams.away.logo
+                            group.teams[i].id = matchingFixture.teams.home.id
+                            group.teams[j].id = matchingFixture.teams.away.id
+                        } else {
+                            group.teams[j].logo = matchingFixture.teams.home.logo
+                            group.teams[i].logo = matchingFixture.teams.away.logo
+                            group.teams[j].id = matchingFixture.teams.home.id
+                            group.teams[i].id = matchingFixture.teams.away.id
+                        }
+                        allGames.add(Game(group.teams[i],group.teams[j],group.letter,matchingFixture.fixture.timestamp.toLong(),matchingFixture.fixture.id))
+                    }
+            }
+        }
+        var allTeams = mutableListOf<Team>()
+        for (group in groupsWrapper.groups) {
+            allTeams.addAll(group.teams)
+        }
+
+        groupRepository.saveAll(groupsWrapper.groups)
+        teamRepository.saveAll(allTeams)
+        gameRepository.saveAll(allGames)
     }
 }
 
