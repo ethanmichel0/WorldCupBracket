@@ -9,13 +9,33 @@ class Team (var name: String){
     @Id
     var id: String? = null  // will be same as Id used in football api for simplicity and hence passed in
     var logo: String? = null // used for https://v3.football.api-sports.io
-    var wins: Int = 0
-    var losses: Int = 0
-    var ties: Int = 0
-    val totalGames: Int
-        get() = wins + losses + ties
-    var goalsFor: Int = 0
-    var goalsAgainst: Int = 0
+
+    var winsGroup: Int = 0
+    var lossesGroup: Int = 0
+    val totalGamesGroup: Int
+        get() = winsGroup + lossesGroup + ties
+    var goalsForGroup: Int = 0
+    var goalsAgainstGroup: Int = 0
+    val pointsGroup: Int
+        get() = 3 * winsGroup + ties
+
+    var winsKnockout: Int = 0
+    var lossesKnockout: Int = 0
+    val totalGamesKnockout: Int
+        get() = winsKnockout + lossesKnockout
+    var goalsForKnockout: Int = 0
+    var goalsAgainstKnockout: Int = 0
+
+    val wins: Int
+        get() = winsGroup + winsKnockout
+    val losses: Int
+        get() = lossesGroup + lossesKnockout
+    val goalsFor: Int
+        get() = goalsForGroup + goalsForKnockout
+    val goalsAgainst: Int
+        get() = goalsAgainstGroup + goalsAgainstKnockout
+    var ties: Int = 0 // only can have ties in group stage
+
     override fun equals(other: Any?): Boolean =
         other is Team && other.name == name
 }

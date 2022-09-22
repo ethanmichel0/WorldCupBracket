@@ -4,4 +4,5 @@ object Constants {
     const val X_RAPID_API_HOST = "v3.football.api-sports.io"
     @JvmField // https://stackoverflow.com/questions/46482576/java-static-final-in-kotlin-const-val-initializer-should-be-a-constant-value
     val FOOTBALL_API_KEY = System.getenv("FOOTBALL_API_KEY")
+    const val STATUS_FINISHED = "Match Finished"
 }
