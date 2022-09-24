@@ -9,6 +9,5 @@ export async function load({ params }) {
     }
 
     let responseJSON = response.json()
-    console.log(responseJSON)
     return responseJSON
 }

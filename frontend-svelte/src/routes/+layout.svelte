@@ -11,6 +11,9 @@
   <NavItem>
     <NavLink href="/upcoming">Upcoming</NavLink>
   </NavItem>
+  <NavItem>
+    <NavLink href="/results">Upcoming</NavLink>
+  </NavItem>
 </Nav>
 <slot></slot>
 

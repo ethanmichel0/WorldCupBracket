@@ -7,8 +7,8 @@
     <Table bordered>
       <thead>
         <tr>
-          <th>Team1</th>
-          <th>Team2</th>
+          <th>home</th>
+          <th>away</th>
           <th>Group</th>
           <th>Home Score</th>
           <th>Away Score</th>
@@ -21,8 +21,8 @@
       {#each Object.values(data) as game}
       <tbody>
           <tr>
-            <td>{game.team1.name}</td>
-            <td>{game.team2.name}</td>
+            <td>{game.home.name}</td>
+            <td>{game.away.name}</td>
             <td>{game.group}</td>
             <td>{game.homeScore}</td>
             <td>{game.awayScore}</td>

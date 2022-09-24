@@ -18,6 +18,4 @@ interface GameRepository : MongoRepository<Game,String>{
 
     @Query("{\$or :[{\$and:[{'home.name': ?0 }, { 'away.name' : ?1}]},{\$and:[{'home.name': ?1 }, { 'away.name' : ?0}]}]}")
     fun getAllGamesBetweenTwoTeams(team1Name: String, team2Name: String) : List<Game>
-
-
 }

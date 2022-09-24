@@ -1,5 +1,5 @@
 <script>
-    import {Table, Image} from 'sveltestrap'
+    import {Table} from 'sveltestrap'
     /** @type {import('../$types').PageData} */
     export let data;
 </script>
@@ -25,12 +25,12 @@
             <td scope="row">{pos+1}</td>
             <td>{team.name}</td>
             <td><img src={team.logo} height="100px"/></td>
-            <td>{team.totalGames}</td>
-            <td>{team.wins}</td>
-            <td>{team.losses}</td>
-            <td>{team.ties}</td>
-            <td>{team.goalsFor}</td>
-            <td>{team.goalsAgainst}</td>
+            <td>{team.totalGamesGroup}</td>
+            <td>{team.winsGroup}</td>
+            <td>{team.lossesGroup}</td>
+            <td>{team.ties}</td> <!-- Only can have ties in group stage, thus API doesn't have a "tiesGroup property"-->
+            <td>{team.goalsForGroup}</td>
+            <td>{team.goalsAgainstGroup}</td>
           </tr>
         {/each}
       </tbody>
