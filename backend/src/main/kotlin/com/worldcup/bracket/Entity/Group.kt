@@ -7,7 +7,7 @@ import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.Game
 
 @Document(collection="groups")
-class Group(var letter: Char, var teams: List<Team>) {
+class Group(var letter: Char, var teams: MutableList<Team>) {
     @Id
     var id: String? = ObjectId().toHexString()
     var first: Team? = null

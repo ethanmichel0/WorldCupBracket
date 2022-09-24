@@ -13,6 +13,9 @@ import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
 import com.worldcup.bracket.repository.GameRepository
 import com.worldcup.bracket.repository.TeamRepository
 import com.worldcup.bracket.Entity.Game
+import com.worldcup.bracket.Entity.Team
+
+import java.util.Comparator
 
 @Service
 class GameService(private val gameRepository : GameRepository, private val teamRepository : TeamRepository) {

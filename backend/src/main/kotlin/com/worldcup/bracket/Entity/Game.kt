@@ -18,3 +18,4 @@ data class Game(
         var currentMinute : Int = 0
         var winner: Team? = null
     }
+    
