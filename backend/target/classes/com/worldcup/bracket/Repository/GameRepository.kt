@@ -11,10 +11,10 @@ interface GameRepository : MongoRepository<Game,String>{
     fun findByOrderByDateAsc() : List<Game>
 
     @Query("{\$and :[{\$or:[{'home._id': ?0 }, { 'away._id' : ?0}]},{'date': {\$gte: ?1}}]}")
-    fun getAllGamesFromTeamUpcoming(teamName: String, date: Long) : List<Game>
+    fun getAllGamesFromTeamUpcoming(teamId: String, date: Long) : List<Game>
 
     @Query("{\$and :[{\$or:[{'home._id': ?0 }, { 'away._id' : ?0}]},{'date': {\$lt: ?1}}]}")
-    fun getAllGamesFromTeamPast(teamName: String, date: Long) : List<Game>
+    fun getAllGamesFromTeamPast(teamId: String, date: Long) : List<Game>
 
     @Query("{\$or :[{\$and:[{'home.name': ?0 }, { 'away.name' : ?1}]},{\$and:[{'home.name': ?1 }, { 'away.name' : ?0}]}]}")
     fun getAllGamesBetweenTwoTeams(team1Name: String, team2Name: String) : List<Game>
