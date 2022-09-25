@@ -7,4 +7,6 @@ import org.springframework.stereotype.Repository;
 interface TeamRepository : MongoRepository<Team,String>{
     fun findByName(name : String) : List<Team>
     fun existsByName(name: String) : Boolean
+    fun findByGroup(group: String) : List<Team>
+    fun findByOrderByGroup() : List<Team>
 }

@@ -5,7 +5,7 @@ import org.springframework.data.annotation.Id
 import org.bson.types.ObjectId
 
 @Document(collection="teams")
-class Team (var name: String){
+class Team (val name: String, val group: String?){
     @Id
     var id: String? = null  // will be same as Id used in football api for simplicity and hence passed in
     var logo: String? = null // used for https://v3.football.api-sports.io
@@ -18,6 +18,10 @@ class Team (var name: String){
     var goalsAgainstGroup: Int = 0
     val pointsGroup: Int
         get() = 3 * winsGroup + ties
+    
+    var positionGroup: Int  = -1
+    // only used to determine first and second place for knockout rounds, -1 indicates 3rd or 4th
+    // with team not advancing to knockout
 
     var winsKnockout: Int = 0
     var lossesKnockout: Int = 0

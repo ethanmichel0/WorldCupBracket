@@ -1,10 +1,8 @@
-{"groups" : [
-    {"letter":"A","teams":[{"name": "Qatar"},{"name":"Ecuador"},{"name":"Senegal"},{"name":"Netherlands"}]},
-    {"letter":"B","teams":[{"name": "England"},{"name":"Iran"},{"name": "USA"},{"name": "Wales"}]},
-    {"letter":"B","teams":[{"name": "Saudi Arabia"}, {"name": "Mexico"}, {"name": "Argentina"}, {"name": "Poland"}]},
-    {"letter":"D","teams":[{"name": "France"}, {"name": "Australia"}, {"name": "Denmark"}, {"name": "Tunisia"}]},
-    {"letter":"E","teams":[{"name": "Spain"}, {"name": "Costa Rica"}, {"name": "Germany"},{"name":"Japan"}]},
-    {"letter":"F","teams":[{"name": "Belgium"},{"name": "Canada"},{"name": "Morocco"},{"name": "Croatia"}]},
-    {"letter":"G","teams":[{"name": "Brazil"},{"name": "Serbia"},{"name": "Switzerland"},{"name": "Cameroon"}]},
-    {"letter":"H","teams":[{"name": "Portugal"},{"name": "Ghana"},{"name": "South Korea"},{"name": "Uruguay"}]}
-]}
+{"teams":[{"name": "Qatar", "group": "A"},{"name":"Ecuador", "group": "A"},{"name":"Senegal", "group": "A"},{"name":"Netherlands", "group" : "A"},
+{"name": "England", "group": "B"},{"name":"Iran", "group": "B"},{"name": "USA", "group": "B"},{"name": "Wales", "group": "B"},
+{"name": "Saudi Arabia", "group" : "C"}, {"name": "Mexico", "group" : "C"}, {"name": "Argentina", "group" : "C"}, {"name": "Poland", "group" : "C"},
+{"name": "France","group":"D"}, {"name": "Australia","group":"D"}, {"name": "Denmark","group":"D"}, {"name": "Tunisia","group":"D"},
+{"name": "Spain","group":"E"}, {"name": "Costa Rica","group":"E"}, {"name": "Germany","group":"E"},{"name":"Japan","group":"E"},
+{"name": "Belgium","group":"F"},{"name": "Canada","group":"F"},{"name": "Morocco","group":"F"},{"name": "Croatia","group":"F"},
+{"name": "Brazil","group":"G"},{"name": "Serbia","group":"G"},{"name": "Switzerland","group":"G"},{"name": "Cameroon","group":"G"},
+{"name": "Portugal","group":"H"},{"name": "Ghana","group":"H"},{"name": "South Korea","group":"H"},{"name": "Uruguay","group":"H"}]}

@@ -8,10 +8,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken
 
-import com.worldcup.bracket.repository.GroupRepository
 import com.worldcup.bracket.repository.TeamRepository
 import com.worldcup.bracket.repository.GameRepository
-import com.worldcup.bracket.Entity.Group
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
@@ -28,14 +26,12 @@ import java.net.URI
 
 @Component()
 class DataInitializer(
-    private val groupRepository: GroupRepository,
     private val teamRepository: TeamRepository,
     private val gameRepository: GameRepository
     ) : ApplicationRunner {
 
     override fun run (args: ApplicationArguments) {
-        if (this.groupRepository.findAll().size != 0) {
-            this.groupRepository.deleteAll()
+        if (this.teamRepository.findAll().size != 0) {
             this.teamRepository.deleteAll()
             this.gameRepository.deleteAll()
         }
@@ -48,44 +44,43 @@ class DataInitializer(
         
         val path: String = Paths.get("").toAbsolutePath().toString()
         val jsonString: String = File(path + "/src/groups.json").readText(Charsets.UTF_8)
-        val groupsWrapper : GroupsWrapper = Gson().fromJson(jsonString, GroupsWrapper::class.java)
+        val teamsWrapper : TeamsWrapper = Gson().fromJson(jsonString, TeamsWrapper::class.java)
         val allGames = mutableListOf<Game>()
-        for (group in groupsWrapper.groups) {
-            for (i in 0 until group.teams.size) {
-                for (j in 1 until group.teams.size) 
-                    if(group.teams[i] != group.teams[j]) {
-                        // find matching game from response from api (responseWrapper) so that we can get time of game, and logo
-                        // for each team
-                        val matchingFixture = responseWrapper.response.filter{(it.teams.home == group.teams[i] && 
-                                it.teams.away == group.teams[j])
-                                || (it.teams.away == group.teams[i] 
-                                && it.teams.home == group.teams[j])}[0]
-                        if (matchingFixture.teams.home == group.teams[i]) {
-                            group.teams[i].logo = matchingFixture.teams.home.logo
-                            group.teams[j].logo = matchingFixture.teams.away.logo
-                            group.teams[i].id = matchingFixture.teams.home.id
-                            group.teams[j].id = matchingFixture.teams.away.id
-                        } else {
-                            group.teams[j].logo = matchingFixture.teams.home.logo
-                            group.teams[i].logo = matchingFixture.teams.away.logo
-                            group.teams[j].id = matchingFixture.teams.home.id
-                            group.teams[i].id = matchingFixture.teams.away.id
-                        }
-                        allGames.add(Game(matchingFixture.teams.home,matchingFixture.teams.away,group.letter.toString(),false,matchingFixture.fixture.timestamp.toLong(),matchingFixture.fixture.id))
+        for (i in 0 until teamsWrapper.teams.size) {
+            for (j in 1 until teamsWrapper.teams.size)  {
+                if(i != j && teamsWrapper.teams[i].group == teamsWrapper.teams[j].group) {
+                    // find matching game from response from api (responseWrapper) so that we can get time of game, and logo
+                    // for each team
+                    val matchingFixture = responseWrapper.response.filter{(it.teams.home == teamsWrapper.teams[i] && 
+                            it.teams.away == teamsWrapper.teams[j])
+                            || (it.teams.away == teamsWrapper.teams[i] 
+                            && it.teams.home == teamsWrapper.teams[j])}[0]
+                    if (matchingFixture.teams.home == teamsWrapper.teams[i]) {
+                        teamsWrapper.teams[i].logo = matchingFixture.teams.home.logo
+                        teamsWrapper.teams[j].logo = matchingFixture.teams.away.logo
+                        teamsWrapper.teams[i].id = matchingFixture.teams.home.id
+                        teamsWrapper.teams[j].id = matchingFixture.teams.away.id
+                    } else {
+                        teamsWrapper.teams[j].logo = matchingFixture.teams.home.logo
+                        teamsWrapper.teams[i].logo = matchingFixture.teams.away.logo
+                        teamsWrapper.teams[j].id = matchingFixture.teams.home.id
+                        teamsWrapper.teams[i].id = matchingFixture.teams.away.id
                     }
+                    allGames.add(Game(matchingFixture.teams.home,
+                            matchingFixture.teams.away,
+                            teamsWrapper.teams[i].group,
+                            false,
+                            matchingFixture.fixture.timestamp.toLong(),
+                            matchingFixture.fixture.id))
+                }
             }
         }
-        var allTeams = mutableListOf<Team>()
-        for (group in groupsWrapper.groups) {
-            allTeams.addAll(group.teams)
-        }
 
-        groupRepository.saveAll(groupsWrapper.groups)
-        teamRepository.saveAll(allTeams)
+        teamRepository.saveAll(teamsWrapper.teams)
         gameRepository.saveAll(allGames)
     }
 }
 
-data class GroupsWrapper(
-    val groups: List<Group>
+data class TeamsWrapper(
+    val teams: List<Team>
 )

@@ -8,7 +8,9 @@ export async function load({ params }) {
         throw new Error(`Error! status: ${response.status}`);
     }
 
-    let responseJSON = response.json()
+    let responseJSON = await response.json()
+    console.log(responseJSON.team)
+    console.log("TESDFSD")
 
-    return responseJSON
+    return responseJSON.team
 }

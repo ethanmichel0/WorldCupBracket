@@ -28,32 +28,68 @@ class GameService(private val gameRepository : GameRepository, private val teamR
         if (game != null) {
             if (responseWrapper.response[0].fixture.status.long == Constants.STATUS_FINISHED) {
                 if (responseWrapper.response[0].goals.home != null && responseWrapper.response[0].goals.away != null) {
-                    if (responseWrapper.response[0].goals.home!! > responseWrapper.response[0].goals.away!! || 
-                            ((responseWrapper.response[0].score.penalty.home != null && responseWrapper.response[0].score.penalty.away != null) &&
-                            responseWrapper.response[0].score.penalty.home!! > responseWrapper.response[0].score.penalty.away!!)) {
+                    if (responseWrapper.response[0].goals.home!! > responseWrapper.response[0].goals.away!!) {
                         game.winner = responseWrapper.response[0].teams.home
                         if (game.knockoutGame) {
                             game.home.winsKnockout ++;
                             game.away.lossesKnockout ++;
+                            game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
+                            game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
+                            game.home.goalsAgainstKnockout += responseWrapper.response[0].goals.away!!
+                            game.away.goalsAgainstKnockout += responseWrapper.response[0].goals.home!!
                         } else {
                             game.home.winsGroup ++;
                             game.away.lossesGroup ++;
+                            game.home.goalsForGroup += responseWrapper.response[0].goals.home!!
+                            game.away.goalsForGroup += responseWrapper.response[0].goals.away!!
+                            game.home.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
+                            game.away.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
                         }
-                    } else if (responseWrapper.response[0].goals.home!! < responseWrapper.response[0].goals.away!! || 
-                            ((responseWrapper.response[0].score.penalty.home != null && responseWrapper.response[0].score.penalty.away != null) &&
-                            responseWrapper.response[0].score.penalty.away!! > responseWrapper.response[0].score.penalty.home!!)) {
+                    } else if (responseWrapper.response[0].goals.home!! < responseWrapper.response[0].goals.away!!) {
                         game.winner = responseWrapper.response[0].teams.away
                         if (game.knockoutGame) {
                             game.home.lossesKnockout ++;
                             game.away.winsKnockout ++;
+                            game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
+                            game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
+                            game.home.goalsAgainstKnockout += responseWrapper.response[0].goals.away!!
+                            game.away.goalsAgainstKnockout += responseWrapper.response[0].goals.home!!
                         } else {
                             game.home.lossesGroup ++;
                             game.away.winsGroup ++;
+                            game.home.goalsForGroup += responseWrapper.response[0].goals.home!!
+                            game.home.goalsForGroup += responseWrapper.response[0].goals.away!!
+                            game.home.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
+                            game.away.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
                         }
+                    }
+                    // TODO add testing for all of these scenarios
+                    // only penalties in knockout games (no ties)
+                    else if (responseWrapper.response[0].score.penalty.home != null && responseWrapper.response[0].score.penalty.away != null &&
+                            responseWrapper.response[0].score.penalty.home!! > responseWrapper.response[0].score.penalty.away!!) {
+                        game.home.winsKnockout ++;
+                        game.away.lossesKnockout ++;
+                        game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
+                            game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
+                            game.home.goalsAgainstKnockout += responseWrapper.response[0].goals.away!!
+                            game.away.goalsAgainstKnockout += responseWrapper.response[0].goals.home!!
+                    }
+                    else if (responseWrapper.response[0].score.penalty.home != null && responseWrapper.response[0].score.penalty.away != null &&
+                            responseWrapper.response[0].score.penalty.home!! < responseWrapper.response[0].score.penalty.away!!) {
+                        game.away.winsKnockout ++;
+                        game.home.lossesKnockout ++;
+                        game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
+                            game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
+                            game.home.goalsAgainstKnockout += responseWrapper.response[0].goals.away!!
+                            game.away.goalsAgainstKnockout += responseWrapper.response[0].goals.home!!
                     } else {
                         game.home.ties ++;
                         game.away.ties ++;
                         // only ties in group stage, not knockout games.
+                        game.home.goalsForGroup += responseWrapper.response[0].goals.home!!
+                        game.home.goalsForGroup += responseWrapper.response[0].goals.away!!
+                        game.home.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
+                        game.away.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
                     }
                 }
             }

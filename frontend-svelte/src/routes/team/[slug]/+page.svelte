@@ -2,6 +2,8 @@
     import {Table} from 'sveltestrap'
     /** @type {import('$types').PageData} */
     export let data;
+    console.log("dest")
+    console.log(data)
 </script>
 
 <Table bordered>
@@ -19,14 +21,14 @@
     </thead>
     <tbody>
         <tr>
-          <td>{team.name}</td>
-          <td><img src={team.logo} height="100px"/></td>
-          <td>{team.totalGames}</td>
-          <td>{team.wins}</td>
-          <td>{team.losses}</td>
-          <td>{team.ties}</td>
-          <td>{team.goalsFor}</td>
-          <td>{team.goalsAgainst}</td>
+          <td>{data.name}</td>
+          <td><img src={data.logo} height="100px"/></td>
+          <td>{data.totalGames}</td>
+          <td>{data.wins}</td>
+          <td>{data.losses}</td>
+          <td>{data.ties}</td>
+          <td>{data.goalsFor}</td>
+          <td>{data.goalsAgainst}</td>
         </tr>
-ion    </tbody>
+    </tbody>
   </Table>

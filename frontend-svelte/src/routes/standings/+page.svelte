@@ -2,6 +2,7 @@
     import {Table} from 'sveltestrap'
     /** @type {import('../$types').PageData} */
     export let data;
+    console.log(data)
 </script>
 
 {#each Object.values(data) as group}
@@ -20,10 +21,10 @@
         </tr>
       </thead>
       <tbody>
-        {#each group.teams as team, pos}
+        {#each group as team, pos}
           <tr>
-            <td scope="row">{pos+1}</td>
-            <td>{team.name}</td>
+            <td>{pos + 1}</td>
+            <td><a href={`/team/${team.id}`}>{team.name}</a></td>
             <td><img src={team.logo} height="100px"/></td>
             <td>{team.totalGamesGroup}</td>
             <td>{team.winsGroup}</td>
