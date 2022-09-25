@@ -20,7 +20,9 @@ class TeamService(private val teamRepository : TeamRepository, private val gameR
             })
         group.sortedWith(pointsComparison)
         group[0].positionGroup = 1
-        group[2].positionGroup = 2
+        group[1].positionGroup = 2
+
+        teamRepository.saveAll(listOf(group[0],group[1]))
     }
 
     fun orderTwoTeamsByRelatedGame(team1 : Team, team2: Team) : Int {
@@ -44,9 +46,11 @@ class TeamService(private val teamRepository : TeamRepository, private val gameR
                 throw IllegalArgumentException("Teams Provided Do Not Match")
         }
 
-        relevantGroup[0].positionGroup = 1
-        relevantGroup[1].positionGroup = 2
+        team1.positionGroup = 1
+        team2.positionGroup = 2
 
-        return relevantGroup
+        teamRepository.saveAll(listOf(team1,team2))
+
+        return listOf(team1,team2)
     }
 }

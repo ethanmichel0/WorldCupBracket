@@ -91,6 +91,8 @@ class GameService(private val gameRepository : GameRepository, private val teamR
                         game.home.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
                         game.away.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
                     }
+                    gameRepository.save(game)
+                    teamRepository.saveAll(listOf(game.home,game.away))
                 }
             }
         }
