@@ -9,8 +9,6 @@ export async function load({ params }) {
     }
 
     let responseJSON = await response.json()
-    console.log(responseJSON.team)
-    console.log("TESDFSD")
 
     return responseJSON.team
 }
