@@ -36,6 +36,7 @@ data class ScoreNested(
 )
 
 data class StatusNested(
-    val long: String
+    val long: String,
+    val elapsed: Int?
 ) 
 // "Match Finished" indicates that the match is over

@@ -19,6 +19,6 @@ interface GameRepository : MongoRepository<Game,String>{
     @Query("{\$or :[{\$and:[{'home.name': ?0 }, { 'away.name' : ?1}]},{\$and:[{'home.name': ?1 }, { 'away.name' : ?0}]}]}")
     fun getAllGamesBetweenTwoTeams(team1Name: String, team2Name: String) : List<Game>
 
-    fun findByGroupOrderByGroupAsc(group: String) : List<Game>
+    fun findByGroupOrderByGameNumberAsc(group: String) : List<Game>
     // used for knockout stage games
 }

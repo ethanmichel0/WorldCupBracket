@@ -18,5 +18,6 @@ data class Game(
         var awayScore : Int = 0
         var currentMinute : Int = 0
         var winner: Team? = null
+        var scoresAlreadySet: Boolean = false
     }
     
