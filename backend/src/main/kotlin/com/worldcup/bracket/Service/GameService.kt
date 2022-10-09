@@ -15,15 +15,18 @@ import com.worldcup.bracket.repository.TeamRepository
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Service.BuildNewRequest
+import com.worldcup.bracket.FootballAPIData
 
 
 import java.util.Comparator
 
 @Service
-class GameService(private val gameRepository : GameRepository, private val teamRepository : TeamRepository) {
+class GameService(private val gameRepository : GameRepository,
+    private val teamRepository : TeamRepository,
+    private val footballAPIData : FootballAPIData) {
 
     private fun updateScores(fixtureId : String) {
-        val request = BuildNewRequest("${Constants.FIXTURES_API}/id=${fixtureId}","GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
+        val request = BuildNewRequest(footballAPIData.setSingleFixtureAPI(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
         val game : Game? = gameRepository.findByIdOrNull(responseWrapper.response[0].fixture.id)
@@ -33,7 +36,7 @@ class GameService(private val gameRepository : GameRepository, private val teamR
                     game.awayScore = responseWrapper.response[0].goals.away!!
                     game.currentMinute = responseWrapper.response[0].fixture.status.elapsed!!
                     }
-                if (responseWrapper.response[0].fixture.status.long == Constants.STATUS_FINISHED && ! game.scoresAlreadySet) {
+                if (responseWrapper.response[0].fixture.status.long == footballAPIData.STATUS_FINISHED && ! game.scoresAlreadySet) {
                     if (game.knockoutGame) {
                         game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
                         game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
@@ -78,7 +81,7 @@ class GameService(private val gameRepository : GameRepository, private val teamR
     private fun createKnockoutRound(round : String) {
         when (round) {
             "8th Finals" -> {
-                val request = BuildNewRequest("${Constants.FIXTURES_API}&round = 8th Finals","GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
+                val request = BuildNewRequest("${footballAPIData.FIXTURES_API}&round = 8th Finals","GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
                 val firstPlaceTeams = teamRepository.findByPositionGroupOrderByGroupAsc(1);
                 val secondPlaceTeams = teamRepository.findByPositionGroupOrderByGroupAsc(2);
                 val gamesToCreate = mutableListOf<Game>()
@@ -97,7 +100,7 @@ class GameService(private val gameRepository : GameRepository, private val teamR
                 gameRepository.saveAll(gamesToCreate)
             }
             "Quarter-Finals" -> {
-                val request = BuildNewRequest("${Constants.FIXTURES_API}&round = Quarter-Finals","GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
+                val request = BuildNewRequest("${footballAPIData.FIXTURES_API}&round = Quarter-Finals","GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
                 val gamesToCreate = mutableListOf<Game>()
                 val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
                 val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
@@ -115,7 +118,7 @@ class GameService(private val gameRepository : GameRepository, private val teamR
                 gameRepository.saveAll(gamesToCreate)
             }
             "Semi-Finals" -> {
-                val request = BuildNewRequest("${Constants.FIXTURES_API}&round = Semi-Finals","GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
+                val request = BuildNewRequest("${footballAPIData.FIXTURES_API}&round = Semi-Finals","GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
                 val gamesToCreate = mutableListOf<Game>()
                 val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
                 val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
@@ -131,7 +134,7 @@ class GameService(private val gameRepository : GameRepository, private val teamR
                 gameRepository.saveAll(gamesToCreate)
             }
             "Final" -> {
-                val request = BuildNewRequest("${Constants.FIXTURES_API}&round = Final","GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
+                val request = BuildNewRequest("${footballAPIData.FIXTURES_API}&round = Final","GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
                 val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
                 val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
                 val winnersFromSemiFinals = mutableListOf<Team>()

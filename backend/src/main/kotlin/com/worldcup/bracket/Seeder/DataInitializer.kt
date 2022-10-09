@@ -3,6 +3,8 @@ package com.worldcup.bracket.Seeder
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import org.springframework.boot.ApplicationArguments
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Profile;
 import java.nio.file.Paths
 import com.google.gson.Gson; 
 import com.google.gson.GsonBuilder;
@@ -14,6 +16,7 @@ import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
 import com.worldcup.bracket.Service.BuildNewRequest
+import com.worldcup.bracket.FootballAPIData
 
 import java.io.File
 import java.util.Date
@@ -23,11 +26,12 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.URI
 
-
-@Component()
+@Profile("!test")
+@Component
 class DataInitializer(
     private val teamRepository: TeamRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
+    private var footballAPIData: FootballAPIData
     ) : ApplicationRunner {
 
     override fun run (args: ApplicationArguments) {
@@ -37,7 +41,7 @@ class DataInitializer(
         }
 
         // get all fixtures from football api
-        val request = BuildNewRequest(Constants.FIXTURES_API,"GET",null,"x-rapidapi-host",Constants.X_RAPID_API_HOST,"x-rapidapi-key",Constants.FOOTBALL_API_KEY)
+        val request = BuildNewRequest(footballAPIData.FIXTURES_API,"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
 
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
