@@ -10,8 +10,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
-import com.worldcup.bracket.repository.GameRepository
-import com.worldcup.bracket.repository.TeamRepository
+import com.worldcup.bracket.Repository.GameRepository
+import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Service.BuildNewRequest
@@ -25,11 +25,19 @@ class GameService(private val gameRepository : GameRepository,
     private val teamRepository : TeamRepository,
     private val footballAPIData : FootballAPIData) {
 
-    private fun updateScores(fixtureId : String) {
+    public fun updateScores(fixtureId : String) {
+        println("INSIDERSDF")
         val request = BuildNewRequest(footballAPIData.setSingleFixtureAPI(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+        println("REQUEST")
+        println(request)
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        println(response.body())
+        println("IS RESPOONSE BOODY")
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
         val game : Game? = gameRepository.findByIdOrNull(responseWrapper.response[0].fixture.id)
+        println(game)
+        println(responseWrapper.response[0])
+        println("IS GAME")
         if (game != null) {
                 if (responseWrapper.response[0].goals.home != null && responseWrapper.response[0].goals.away != null) {
                     game.homeScore = responseWrapper.response[0].goals.home!!

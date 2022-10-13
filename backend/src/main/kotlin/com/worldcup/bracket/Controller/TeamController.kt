@@ -4,8 +4,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 
-import com.worldcup.bracket.repository.TeamRepository
-import com.worldcup.bracket.repository.GameRepository
+import com.worldcup.bracket.Repository.TeamRepository
+import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.DTO.OverrideGroupSettings
 import com.worldcup.bracket.DTO.TeamWithUpcomingGames

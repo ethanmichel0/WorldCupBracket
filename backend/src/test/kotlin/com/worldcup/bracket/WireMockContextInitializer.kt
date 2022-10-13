@@ -20,9 +20,9 @@ class WireMockContextInitializer : ApplicationContextInitializer<ConfigurableApp
                 wmServer.stop()
             }
         }
-
+        
         TestPropertyValues
-            .of("football.baseAPI=http://localhost:${wmServer.port()}/footballAPI")
+            .of("footballAPI.baseAPI=http://localhost:${wmServer.port()}/footballAPI/")
             .applyTo(applicationContext) 
     } 
 }

@@ -1,8 +1,8 @@
 package com.worldcup.bracket.Service
 
 import com.worldcup.bracket.Entity.Team
-import com.worldcup.bracket.repository.TeamRepository
-import com.worldcup.bracket.repository.GameRepository
+import com.worldcup.bracket.Repository.TeamRepository
+import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.DTO.OverrideGroupSettings
 
 import org.springframework.stereotype.Service
@@ -32,7 +32,7 @@ class TeamService(private val teamRepository : TeamRepository, private val gameR
 
     // In case teams are still tied after trying to figure out which teams should advance
     fun overrideGroupOrdering(overrideGroupSettings : OverrideGroupSettings) : List<Team> {
-        if (overrideGroupSettings.overridePass != System.getenv("OVERRIDE_PW")) throw IllegalArgumentException("You need special permission to set tiebreakers")
+        if (overrideGroupSettings.overridePass != System.getProperty("OVERRIDE_PW")) throw IllegalArgumentException("You need special permission to set tiebreakers")
         if (! (teamRepository.existsByName(overrideGroupSettings.first) && teamRepository.existsByName(overrideGroupSettings.second))) {
             throw IllegalArgumentException("Teams Provided Do Not Match")
         }

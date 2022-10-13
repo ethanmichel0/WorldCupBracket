@@ -1,4 +1,4 @@
-package com.worldcup.bracket.repository
+package com.worldcup.bracket.Repository
 
 import org.springframework.data.mongodb.repository.MongoRepository
 import com.worldcup.bracket.Entity.Team

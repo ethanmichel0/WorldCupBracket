@@ -4,14 +4,15 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import org.springframework.boot.ApplicationArguments
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile;
 import java.nio.file.Paths
 import com.google.gson.Gson; 
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken
 
-import com.worldcup.bracket.repository.TeamRepository
-import com.worldcup.bracket.repository.GameRepository
+import com.worldcup.bracket.Repository.TeamRepository
+import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
@@ -34,7 +35,14 @@ class DataInitializer(
     private var footballAPIData: FootballAPIData
     ) : ApplicationRunner {
 
+    @Value("\${secrets.OVERRIDE_PW}")
+    lateinit var groupStandingsOverridePW : String
+
     override fun run (args: ApplicationArguments) {
+        
+        // set override pw to allow tiebreakers in group standings based on application.properties
+        System.setProperty("OVERRIDE_PW",groupStandingsOverridePW)
+
         if (this.teamRepository.findAll().size != 0) {
             this.teamRepository.deleteAll()
             this.gameRepository.deleteAll()

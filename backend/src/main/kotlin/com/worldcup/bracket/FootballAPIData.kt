@@ -9,12 +9,14 @@ import org.springframework.beans.factory.annotation.Autowired
 class FootballAPIData {
     @Value("\${footballAPI.baseAPI}")
     lateinit var BASE_API: String
-    val FIXTURES_API = "https://v3.football.api-sports.io/fixtures?season=2022&league=1"
+    @Value("\${footballAPI.baseAPI}fixtures?season=2022&league=1")
+    lateinit var FIXTURES_API: String
     fun setSingleFixtureAPI(id : String) = BASE_API + "fixtures?id=${id}"
     // These must be "var" because initialized according to application.properties file but in reality these are constants
 
 
     val X_RAPID_API_HOST = "v3.football.api-sports.io"
-    val FOOTBALL_API_KEY = System.getenv("FOOTBALL_API_KEY")
+    @Value("\${secrets.FOOTBALL_API_KEY}")
+    lateinit var FOOTBALL_API_KEY: String
     val STATUS_FINISHED = "Match Finished"
 }

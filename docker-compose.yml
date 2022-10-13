@@ -24,8 +24,6 @@ services:
     tty: true
     volumes: 
       - ./backend/src:/app/src
-    env_file:
-      - ./.env
       
   frontend-svelte:
     image: bracket_frontend
