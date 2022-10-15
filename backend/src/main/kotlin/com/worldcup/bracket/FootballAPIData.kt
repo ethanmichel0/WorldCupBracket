@@ -6,7 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired
 
 
 @Component
-class FootballAPIData {
+class FootballAPIData(private val secretsConfigurationProperties : SecretsConfigurationProperties) {
+
     @Value("\${footballAPI.baseAPI}")
     lateinit var BASE_API: String
     @Value("\${footballAPI.baseAPI}fixtures?season=2022&league=1")
@@ -16,7 +17,6 @@ class FootballAPIData {
 
 
     val X_RAPID_API_HOST = "v3.football.api-sports.io"
-    @Value("\${secrets.FOOTBALL_API_KEY}")
-    lateinit var FOOTBALL_API_KEY: String
+    val FOOTBALL_API_KEY: String = secretsConfigurationProperties.footballApiKey
     val STATUS_FINISHED = "Match Finished"
 }

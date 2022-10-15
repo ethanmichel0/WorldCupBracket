@@ -3,7 +3,7 @@
 For local development, please follow the following steps:
 
 1. Clone repo
-2. Head to [football api](https://www.api-football.com) and create a free account. Next, create a .env file in your base directory of this repo with ```FOOTBALL_API_KEY={ENTER YOUR API KEY FROM RAPIDSPORTSAPIHERE}```. This will allow you to make requests to get live world cup results and fixtures. 
+2. Head to [football api](https://www.api-football.com) and create a free account. Next, create a secrets.properties file in your /backend/src/main/resources folder next to application.properties and enter ```secrets.football-api-key={ENTER YOUR API KEY FROM RAPIDSPORTSAPIHERE}```. This will allow you to make requests to get live world cup results and fixtures. 
 3. Download [docker compose](https://docs.docker.com/compose/install/) (free for non enterprise use)
 4. In terminal: ``` docker-compose up --build ```  -- This will build your frontend and backend containers and MongoDB database
 5. If you make a change and want to see it live on the backend without restarting the docker container, enter the backend docker container with ```docker exec -it worldcupbracket_spring-boot_1 /bin/sh``` in a new terminal window. This will take you inside the backend container. Note that all of the changes you make locally in /backend/src are mounted into the docker container in live time. You will only need to type ```mvn compile``` to recompile your changes from Kotlin files to java class files. Frontend changes should reflect automatically.

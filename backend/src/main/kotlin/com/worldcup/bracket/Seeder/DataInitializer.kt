@@ -27,7 +27,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.URI
 
-@Profile("!test")
+@Profile("!skipDataInitialization")
 @Component
 class DataInitializer(
     private val teamRepository: TeamRepository,
@@ -35,14 +35,9 @@ class DataInitializer(
     private var footballAPIData: FootballAPIData
     ) : ApplicationRunner {
 
-    @Value("\${secrets.OVERRIDE_PW}")
-    lateinit var groupStandingsOverridePW : String
 
     override fun run (args: ApplicationArguments) {
         
-        // set override pw to allow tiebreakers in group standings based on application.properties
-        System.setProperty("OVERRIDE_PW",groupStandingsOverridePW)
-
         if (this.teamRepository.findAll().size != 0) {
             this.teamRepository.deleteAll()
             this.gameRepository.deleteAll()

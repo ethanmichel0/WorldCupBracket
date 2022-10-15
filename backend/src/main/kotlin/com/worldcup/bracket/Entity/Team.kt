@@ -16,12 +16,13 @@ class Team (val name: String, val group: String?){
         get() = winsGroup + lossesGroup + ties
     var goalsForGroup: Int = 0
     var goalsAgainstGroup: Int = 0
+    val goalsDifferenceGroup: Int
+        get() = goalsForGroup - goalsAgainstGroup
     val pointsGroup: Int
         get() = 3 * winsGroup + ties
     
     var positionGroup: Int  = -1
-    // only used to determine first and second place for knockout rounds, -1 indicates 3rd or 4th
-    // with team not advancing to knockout
+    // only used to determine first and second place for knockout rounds, -1 indicates not yet calculated
 
     var winsKnockout: Int = 0
     var lossesKnockout: Int = 0
@@ -29,6 +30,8 @@ class Team (val name: String, val group: String?){
         get() = winsKnockout + lossesKnockout
     var goalsForKnockout: Int = 0
     var goalsAgainstKnockout: Int = 0
+    val goalsDifferenceKnockout: Int
+        get() = goalsForKnockout - goalsAgainstKnockout
 
     val wins: Int
         get() = winsGroup + winsKnockout
@@ -38,8 +41,12 @@ class Team (val name: String, val group: String?){
         get() = goalsForGroup + goalsForKnockout
     val goalsAgainst: Int
         get() = goalsAgainstGroup + goalsAgainstKnockout
+    val goalsDifference: Int
+        get() = goalsDifferenceGroup + goalsDifferenceKnockout
     var ties: Int = 0 // only can have ties in group stage
 
     override fun equals(other: Any?): Boolean =
         other is Team && other.name == name
+    
+    override fun toString(): String = "Team Name:" + name
 }

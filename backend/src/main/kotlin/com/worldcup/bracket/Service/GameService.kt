@@ -26,25 +26,22 @@ class GameService(private val gameRepository : GameRepository,
     private val footballAPIData : FootballAPIData) {
 
     public fun updateScores(fixtureId : String) {
-        println("INSIDERSDF")
         val request = BuildNewRequest(footballAPIData.setSingleFixtureAPI(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
-        println("REQUEST")
-        println(request)
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-        println(response.body())
-        println("IS RESPOONSE BOODY")
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
         val game : Game? = gameRepository.findByIdOrNull(responseWrapper.response[0].fixture.id)
-        println(game)
-        println(responseWrapper.response[0])
-        println("IS GAME")
+        println("TESTING PRINT STATEMENT INSIDE UPDATESCORES")
         if (game != null) {
+                println(responseWrapper.response[0])
+                println("IS GAME FROM SERVER")
                 if (responseWrapper.response[0].goals.home != null && responseWrapper.response[0].goals.away != null) {
                     game.homeScore = responseWrapper.response[0].goals.home!!
                     game.awayScore = responseWrapper.response[0].goals.away!!
                     game.currentMinute = responseWrapper.response[0].fixture.status.elapsed!!
                     }
                 if (responseWrapper.response[0].fixture.status.long == footballAPIData.STATUS_FINISHED && ! game.scoresAlreadySet) {
+                    println("KNOCKOUT IS:" + game.knockoutGame)
+                    println(responseWrapper.response[0])
                     if (game.knockoutGame) {
                         game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
                         game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
@@ -66,6 +63,8 @@ class GameService(private val gameRepository : GameRepository,
                         game.away.goalsForGroup += responseWrapper.response[0].goals.away!!
                         game.home.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
                         game.away.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
+                        println("${game.home.goalsForGroup} IS NUM GOALS HOME")
+                        println("${game.away.goalsForGroup} IS NUM GOALS AWAY")
                         if (responseWrapper.response[0].goals.home!! > responseWrapper.response[0].goals.away!!) {
                             game.winner = game.home
                             game.home.winsGroup ++

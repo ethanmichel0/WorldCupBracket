@@ -2,3 +2,4 @@
 **/.svelte_kit
 **/.env
 **/target/**
+**/secrets.properties
