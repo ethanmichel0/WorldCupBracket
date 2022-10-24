@@ -30,18 +30,13 @@ class GameService(private val gameRepository : GameRepository,
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
         val game : Game? = gameRepository.findByIdOrNull(responseWrapper.response[0].fixture.id)
-        println("TESTING PRINT STATEMENT INSIDE UPDATESCORES")
         if (game != null) {
-                println(responseWrapper.response[0])
-                println("IS GAME FROM SERVER")
                 if (responseWrapper.response[0].goals.home != null && responseWrapper.response[0].goals.away != null) {
                     game.homeScore = responseWrapper.response[0].goals.home!!
                     game.awayScore = responseWrapper.response[0].goals.away!!
                     game.currentMinute = responseWrapper.response[0].fixture.status.elapsed!!
                     }
                 if (responseWrapper.response[0].fixture.status.long == footballAPIData.STATUS_FINISHED && ! game.scoresAlreadySet) {
-                    println("KNOCKOUT IS:" + game.knockoutGame)
-                    println(responseWrapper.response[0])
                     if (game.knockoutGame) {
                         game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
                         game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
@@ -63,8 +58,6 @@ class GameService(private val gameRepository : GameRepository,
                         game.away.goalsForGroup += responseWrapper.response[0].goals.away!!
                         game.home.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
                         game.away.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
-                        println("${game.home.goalsForGroup} IS NUM GOALS HOME")
-                        println("${game.away.goalsForGroup} IS NUM GOALS AWAY")
                         if (responseWrapper.response[0].goals.home!! > responseWrapper.response[0].goals.away!!) {
                             game.winner = game.home
                             game.home.winsGroup ++
