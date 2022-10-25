@@ -8,6 +8,12 @@ import org.springframework.web.bind.annotation.RestController
 class BracketController() {
     @GetMapping("/api/brackets")
     fun getAllGamesSortByDateAsc() : String {
-        return "test restricted"
+        print("df")
+        return "test restrictedz"
+    }
+    @GetMapping("/api/testAuth")
+    fun test() : String {
+        println("SDf")
+        return "Testing if redirection woroking"
     }
 }
