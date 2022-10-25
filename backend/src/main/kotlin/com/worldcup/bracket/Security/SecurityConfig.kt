@@ -8,12 +8,14 @@ import org.springframework.security.web.SecurityFilterChain
 import java.lang.Exception
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.ComponentScan
 
 import org.springframework.security.config.Customizer.withDefaults
 
 
 @EnableWebSecurity
 @Configuration
+@ComponentScan("com.worldcup.bracket.*")
 public class SecurityConfig(private val authenticationSuccessHandler : AuthenticationSuccessHandler) {
     @Throws(Exception::class)
     @Bean
@@ -25,7 +27,7 @@ public class SecurityConfig(private val authenticationSuccessHandler : Authentic
                     auth.antMatchers("/**").permitAll()
                 }
                 .oauth2Login()
-                .successHandler(AuthenticationSuccessHandler())
+                .successHandler(authenticationSuccessHandler)
                 .and()
                 .build()
     }

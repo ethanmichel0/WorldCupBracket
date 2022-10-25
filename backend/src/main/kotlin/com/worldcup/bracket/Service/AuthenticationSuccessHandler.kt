@@ -43,7 +43,7 @@ public class AuthenticationSuccessHandler : SavedRequestAwareAuthenticationSucce
         val requestCache : RequestCache = HttpSessionRequestCache();
         val savedRequest : SavedRequest = requestCache.getRequest(request, response);
         val userDetails : DefaultOidcUser = authentication.getPrincipal() as DefaultOidcUser
-        logger.info(userDetails.getIdToken().getTokenValue())
+        response.setHeader("Authorization","Bearer " + userDetails.getIdToken().getTokenValue())
         userRepository.save(User(userDetails.getName(), userDetails.getEmail(), AuthService.GOOGLE))
         redirectStrategy.sendRedirect(request, response, "/api/testAuth");
     }
