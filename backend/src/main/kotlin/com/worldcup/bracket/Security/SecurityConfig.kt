@@ -9,6 +9,7 @@ import java.lang.Exception
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.ComponentScan
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 
 import org.springframework.security.config.Customizer.withDefaults
 
@@ -28,6 +29,10 @@ public class SecurityConfig(private val authenticationSuccessHandler : Authentic
                 }
                 .oauth2Login()
                 .successHandler(authenticationSuccessHandler)
+                .and().csrf()
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                // csrf token is stored in browser as cookie XSRF-TOKEN, it is send along with POST requests in request header X-XSRF-TOKEN
+                // https://itnext.io/how-to-prevent-cross-site-request-forgery-of-legitime-cross-site-request-5b59a6a56808
                 .and()
                 .build()
     }

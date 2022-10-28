@@ -15,6 +15,7 @@ import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
+import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
 import com.worldcup.bracket.Service.BuildNewRequest
 import com.worldcup.bracket.FootballAPIData
@@ -53,6 +54,7 @@ class DataInitializer(
         val jsonString: String = File(path + "/src/groups.json").readText(Charsets.UTF_8)
         val teamsWrapper : TeamsWrapper = Gson().fromJson(jsonString, TeamsWrapper::class.java)
         val allGames = mutableListOf<Game>()
+        val allPlayers = mutableListOf<Player>()
         for (i in 0 until teamsWrapper.teams.size) {
             for (j in 1 until teamsWrapper.teams.size)  {
                 if(i != j && teamsWrapper.teams[i].group == teamsWrapper.teams[j].group) {
@@ -81,6 +83,10 @@ class DataInitializer(
                             matchingFixture.fixture.id))
                 }
             }
+        }
+
+        for (teams in teamsWrapper.teams) {
+
         }
 
         teamRepository.saveAll(teamsWrapper.teams)

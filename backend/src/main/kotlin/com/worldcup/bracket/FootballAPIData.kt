@@ -13,7 +13,9 @@ class FootballAPIData(private val secretsConfigurationProperties : SecretsConfig
     @Value("\${footballAPI.baseAPI}fixtures?season=2022&league=1")
     lateinit var FIXTURES_API: String
     fun setSingleFixtureAPI(id : String) = BASE_API + "fixtures?id=${id}"
-    // These must be "var" because initialized according to application.properties file but in reality these are constants
+
+    fun getAllPlayersOnTeam(team : String) = listOf(BASE_API + "players?team=${team}&league=1&season=2022&page=1", BASE_API + "players?team=${team}&league=1&season=2022&page=2")
+    // API uses pagination    
 
 
     val X_RAPID_API_HOST = "v3.football.api-sports.io"
