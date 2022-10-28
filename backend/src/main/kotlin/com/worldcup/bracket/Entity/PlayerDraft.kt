@@ -6,12 +6,13 @@ import org.springframework.data.mongodb.core.mapping.Document
 import org.bson.types.ObjectId
 
 
-@Document(collection="bracket")
-data class Bracket(
+@Document(collection="playerdrafts")
+data class PlayerDraft(
     @Id 
     val id : ObjectId = ObjectId.get(),
     var points: Int = 0, 
     var user: User, 
-    val createdDate: Long = System.currentTimeMillis() / 1000
+    val createdDate: Long = System.currentTimeMillis() / 1000,
+    val players: List<Player>
 )
     

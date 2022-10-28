@@ -13,10 +13,12 @@ import com.google.gson.reflect.TypeToken
 
 import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.GameRepository
+import com.worldcup.bracket.Repository.PlayerRepository
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
+import com.worldcup.bracket.DTO.PlayersAPIResponseWrapper
 import com.worldcup.bracket.Service.BuildNewRequest
 import com.worldcup.bracket.FootballAPIData
 
@@ -27,27 +29,30 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.URI
+import kotlinx.coroutines.*
 
 @Profile("!skipDataInitialization")
 @Component
 class DataInitializer(
     private val teamRepository: TeamRepository,
     private val gameRepository: GameRepository,
+    private val playerRepository: PlayerRepository,
     private var footballAPIData: FootballAPIData
     ) : ApplicationRunner {
 
+    val httpClient = HttpClient.newHttpClient()
 
     override fun run (args: ApplicationArguments) {
         
         if (this.teamRepository.findAll().size != 0) {
             this.teamRepository.deleteAll()
             this.gameRepository.deleteAll()
+            this.playerRepository.deleteAll()
         }
 
         // get all fixtures from football api
         val request = BuildNewRequest(footballAPIData.FIXTURES_API,"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
-
-        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
         
         val path: String = Paths.get("").toAbsolutePath().toString()
@@ -85,12 +90,39 @@ class DataInitializer(
             }
         }
 
-        for (teams in teamsWrapper.teams) {
-
+        runBlocking {
+            val allPlayersAdded = teamsWrapper.teams.map {
+                async(Dispatchers.IO) { 
+                    addPlayersFromTeam(it)
+                }
+            }.awaitAll()
+            for (playersOnOneTeam in allPlayersAdded) {
+                allPlayers.addAll(playersOnOneTeam)
+            }
         }
 
         teamRepository.saveAll(teamsWrapper.teams)
         gameRepository.saveAll(allGames)
+        playerRepository.saveAll(allPlayers)
+    }
+
+    suspend fun addPlayersFromTeam(team: Team) : List<Player> {
+        val playersRequest = BuildNewRequest(footballAPIData.getAllPlayersOnTeam(team.id!!),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+        val playersResponse = httpClient.send(playersRequest, HttpResponse.BodyHandlers.ofString());
+        val playersResponseWrapper : PlayersAPIResponseWrapper = Gson().fromJson(playersResponse.body(), PlayersAPIResponseWrapper::class.java)
+        val playersList = mutableListOf<Player>()
+        for (player in playersResponseWrapper.response) {
+            playersList.add(Player(
+                team,
+                player.statistics[0].games.position,
+                player.player.id,
+                player.player.firstname,
+                player.player.lastname,
+                player.player.age,
+                player.player.height,
+                ))
+        }
+        return playersList 
     }
 }
 

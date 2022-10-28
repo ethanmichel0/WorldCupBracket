@@ -1,6 +1,5 @@
 package com.worldcup.bracket.Security
 
-import com.worldcup.bracket.Service.AuthenticationSuccessHandler
 import kotlin.Throws
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -16,7 +15,6 @@ import org.springframework.security.config.Customizer.withDefaults
 
 @EnableWebSecurity
 @Configuration
-@ComponentScan("com.worldcup.bracket.*")
 public class SecurityConfig(private val authenticationSuccessHandler : AuthenticationSuccessHandler) {
     @Throws(Exception::class)
     @Bean
