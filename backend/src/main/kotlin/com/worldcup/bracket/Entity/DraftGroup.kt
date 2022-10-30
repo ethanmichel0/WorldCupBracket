@@ -14,6 +14,7 @@ data class DraftGroups(
     var owner: User, 
     val createdDate: Long = System.currentTimeMillis() / 1000,
     val password: String,
-    var draftTime: Long = -1
+    var draftTime: Long = -1,
+    val members: List<User> = mutableListOf<User>()
 )
     

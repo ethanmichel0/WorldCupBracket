@@ -10,19 +10,26 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
+import com.worldcup.bracket.DTO.PlayersNested
+import com.worldcup.bracket.DTO.AllEvents
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Repository.TeamRepository
+import com.worldcup.bracket.Repository.PlayerRepository
+import com.worldcup.bracket.Repository.PlayerPerformanceRepository
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
+import com.worldcup.bracket.Entity.Player
+import com.worldcup.bracket.Entity.PlayerPerformance
 import com.worldcup.bracket.Service.BuildNewRequest
 import com.worldcup.bracket.FootballAPIData
-
 
 import java.util.Comparator
 
 @Service
 class GameService(private val gameRepository : GameRepository,
     private val teamRepository : TeamRepository,
+    private val playerRepository : PlayerRepository,
+    private val playerPerformanceRepository : PlayerPerformanceRepository,
     private val footballAPIData : FootballAPIData) {
 
     public fun updateScores(fixtureId : String) {
@@ -166,5 +173,59 @@ class GameService(private val gameRepository : GameRepository,
                         game.fixture.timestamp.toLong(),
                         game.fixture.id,
                         gameNum))
+    }
+
+    private fun setPlayerStatistics(allPlayersOneTeam: List<PlayersNested>, allEvents: List<AllEvents>, relatedTeam: Team, relatedGame: Game, teamIsHome: Boolean) {
+        val allPlayersOneTeamFromRepo = playerRepository.findAllPlayersOnTeam(relatedTeam.id!!)
+        val allPlayerPerformances = mutableListOf<PlayerPerformance>()
+        allPlayersOneTeam.forEach{playerFromAPI ->
+            allPlayerPerformances.add(
+                PlayerPerformance(
+                    player=allPlayersOneTeamFromRepo.filter{playerFromRepo -> playerFromRepo.id == playerFromAPI.player.id}[0],
+                    game = relatedGame,
+                    minutes = playerFromAPI.statistics[0].games.minutes,
+                    started = !playerFromAPI.statistics[0].games.substitute,
+                    goals = playerFromAPI.statistics[0].goals.total,
+                    assists = playerFromAPI.statistics[0].goals.assists,
+                    yellowCards = playerFromAPI.statistics[0].cards.yellow,
+                    redCards = playerFromAPI.statistics[0].cards.red,
+                    saves = playerFromAPI.statistics[0].goals.saves,
+                    cleanSheet = if (teamIsHome) relatedGame.awayScore == 0 else relatedGame.homeScore == 0,
+                    penaltySaves = playerFromAPI.statistics[0].penalty.saved,
+                    penaltyMisses = playerFromAPI.statistics[0].penalty.missed
+                )
+            )
+        }
+        // find all own goals (in "allEvents" and subtract points)
+        allEvents.filter{event -> event.detail == "Own Goal"}
+            .forEach{event -> allPlayerPerformances.filter{pp -> pp.player.id == event.player.id}[0].ownGoals ++}
+
+        playerPerformanceRepository.saveAll(allPlayerPerformances)
+        if (relatedGame.scoresAlreadySet) { // indicates that the came is over and we can increment cummulative player stats
+            val playersToUpdate = mutableListOf<Player>()
+            allPlayerPerformances.forEach{
+                pp -> 
+                var markedForUpdate = false
+                if (pp.goals != null && pp.goals!! > 0) {
+                    pp.player.goals += pp.goals!!
+                    if (! markedForUpdate) {
+                        playersToUpdate.add(pp.player)
+                        markedForUpdate = true
+                    }
+                }
+                if (pp.assists != null && pp.assists!! > 0) {
+                    pp.player.assists += pp.assists!!
+                    if (! markedForUpdate) {
+                        playersToUpdate.add(pp.player)
+                        markedForUpdate = true
+                    }
+                }
+            }
+
+            // more cummulative updates here
+
+            playerRepository.saveAll(playersToUpdate)
+        }
+
     }
 }

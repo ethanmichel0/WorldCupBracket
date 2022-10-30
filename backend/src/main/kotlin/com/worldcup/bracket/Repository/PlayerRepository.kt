@@ -7,5 +7,5 @@ import org.springframework.data.mongodb.repository.Query;
 
 interface PlayerRepository : MongoRepository<Player,String>{
     @Query(value = "{'team.id' : ?0}")
-    fun findAllPlayersOnTeam(teamName : String) : List<Player> 
+    fun findAllPlayersOnTeam(teamId : String) : List<Player> 
 }

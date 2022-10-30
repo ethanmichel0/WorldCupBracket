@@ -116,8 +116,7 @@ class DataInitializer(
                 team,
                 player.statistics[0].games.position,
                 player.player.id,
-                player.player.firstname,
-                player.player.lastname,
+                player.player.name,
                 player.player.age,
                 player.player.height,
                 ))

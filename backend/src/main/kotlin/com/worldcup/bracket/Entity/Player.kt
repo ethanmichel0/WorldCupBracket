@@ -9,9 +9,8 @@ data class Player(
     val team: Team,
     val position: Position,
     @Id 
-    var playerId: String,
-    val firstname: String,
-    val lastname: String,
+    var id: Int,
+    val name: String,
     val age: Int,
     val height: String
     ) { // game number used for knockout games

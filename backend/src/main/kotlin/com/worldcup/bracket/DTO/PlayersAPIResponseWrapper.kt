@@ -7,17 +7,16 @@ data class PlayersAPIResponseWrapper(
 )
 
 data class OuterWrapper(
-    val player : PlayersWrapper,
+    val player: PlayersWrapper,
     val statistics: List<StatisticsWrapper>
 )
 
 data class PlayersWrapper(
-    val firstname : String,
-    val lastname : String,
+    val name : String,
     val height: String,
     val weight: String,
     val age: Int,
-    val id: String
+    val id: Int
 )
 
 data class StatisticsWrapper(
