@@ -23,6 +23,9 @@ import com.worldcup.bracket.Entity.PlayerPerformance
 import com.worldcup.bracket.Service.BuildNewRequest
 import com.worldcup.bracket.FootballAPIData
 
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
 import java.util.Comparator
 
 @Service
@@ -31,6 +34,8 @@ class GameService(private val gameRepository : GameRepository,
     private val playerRepository : PlayerRepository,
     private val playerPerformanceRepository : PlayerPerformanceRepository,
     private val footballAPIData : FootballAPIData) {
+
+    private val logger : Logger = LoggerFactory.getLogger(javaClass)
 
     public fun updateScores(fixtureId : String) {
         val request = BuildNewRequest(footballAPIData.setSingleFixtureAPI(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
@@ -42,7 +47,18 @@ class GameService(private val gameRepository : GameRepository,
                     game.homeScore = responseWrapper.response[0].goals.home!!
                     game.awayScore = responseWrapper.response[0].goals.away!!
                     game.currentMinute = responseWrapper.response[0].fixture.status.elapsed!!
-                    }
+                    setPlayerStatistics(
+                        responseWrapper.response[0].players!![0].players,
+                        responseWrapper.response[0].events!!,
+                        game,
+                        responseWrapper.response[0].players!![0].team == game.home)
+
+                    setPlayerStatistics(
+                        responseWrapper.response[0].players!![1].players,
+                        responseWrapper.response[0].events!!,
+                        game,
+                        responseWrapper.response[0].players!![1].team == game.home)
+                }
                 if (responseWrapper.response[0].fixture.status.long == footballAPIData.STATUS_FINISHED && ! game.scoresAlreadySet) {
                     if (game.knockoutGame) {
                         game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
@@ -175,16 +191,18 @@ class GameService(private val gameRepository : GameRepository,
                         gameNum))
     }
 
-    private fun setPlayerStatistics(allPlayersOneTeam: List<PlayersNested>, allEvents: List<AllEvents>, relatedTeam: Team, relatedGame: Game, teamIsHome: Boolean) {
-        val allPlayersOneTeamFromRepo = playerRepository.findAllPlayersOnTeam(relatedTeam.id!!)
+    private fun setPlayerStatistics(allPlayersOneTeam: List<PlayersNested>, allEvents: List<AllEvents>, relatedGame: Game, teamIsHome: Boolean) {
+        val relatedTeamId = if (teamIsHome) relatedGame.home.id!! else relatedGame.away.id!!
+        val allPlayersOneTeamFromRepo = playerRepository.findAllPlayersOnTeam(relatedTeamId)
         val allPlayerPerformances = mutableListOf<PlayerPerformance>()
         allPlayersOneTeam.forEach{playerFromAPI ->
+            allPlayersOneTeamFromRepo.filter{playerFromRepo -> playerFromRepo.id == playerFromAPI.player.id}
             allPlayerPerformances.add(
                 PlayerPerformance(
                     player=allPlayersOneTeamFromRepo.filter{playerFromRepo -> playerFromRepo.id == playerFromAPI.player.id}[0],
                     game = relatedGame,
                     minutes = playerFromAPI.statistics[0].games.minutes,
-                    started = !playerFromAPI.statistics[0].games.substitute,
+                    started = ! (playerFromAPI.statistics[0].games.substitute),
                     goals = playerFromAPI.statistics[0].goals.total,
                     assists = playerFromAPI.statistics[0].goals.assists,
                     yellowCards = playerFromAPI.statistics[0].cards.yellow,

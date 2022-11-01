@@ -46,8 +46,8 @@ data class StatusNested(
 // "Match Finished" indicates that the match is over
 
 data class AllPlayers( // an array for players on each team
-    val team: TeamsNested,
-    val players: PlayersNested
+    val team: Team,
+    val players: List<PlayersNested>
 )
 
 data class PlayersNested( // all players per team

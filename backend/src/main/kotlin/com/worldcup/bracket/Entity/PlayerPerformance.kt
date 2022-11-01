@@ -2,6 +2,7 @@ package com.worldcup.bracket.Entity
 
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
+import org.bson.types.ObjectId
 
 @Document(collection="playerperformances")
 data class PlayerPerformance(
@@ -18,5 +19,7 @@ data class PlayerPerformance(
     var penaltySaves: Int? = 0,
     var penaltyMisses: Int? = 0,
     var ownGoals: Int = 0,
+    @Id 
+    val id : ObjectId = ObjectId.get(),
 )
     
