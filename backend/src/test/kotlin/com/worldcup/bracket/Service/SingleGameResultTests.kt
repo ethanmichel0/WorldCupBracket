@@ -111,6 +111,7 @@ class SingleGameResultTests {
         val dakaPerformance = playerPerformanceRepository.findAllPlayerPerformancesByPlayerAndGame(1098,"868036")[0]
         assert(dakaPerformance.goals==1)
         assert(dakaPerformance.minutes==45)
+        assert(dakaPerformance.cleanSheet)
 
         val fredericksPerformance = playerPerformanceRepository.findAllPlayerPerformancesByPlayerAndGame(18815,"868036")[0]
         assert(fredericksPerformance.yellowCards==1)
@@ -146,5 +147,15 @@ class SingleGameResultTests {
         assert(relevantGame.home.lossesGroup==0)
         assert(relevantGame.away.winsGroup==0)
         assert(relevantGame.away.lossesGroup==1)
+
+        // NOTE -- I marked an own goal for Fredericks to test functinoality but in reality in the game there was no own goal. If you view the actual game by 
+        // sending a request to the api the response will be different w/o an own goal as there is in singleFixtureFulltime.json
+        val dakaPerformance = playerPerformanceRepository.findAllPlayerPerformancesByPlayerAndGame(1098,"868036")
+        val fredericksPerformance = playerPerformanceRepository.findAllPlayerPerformancesByPlayerAndGame(18815,"868036")
+        assert(fredericksPerformance.size==1)
+        assert(dakaPerformance.size==1)
+        assert(fredericksPerformance[0].ownGoals==1)
+        assert(! fredericksPerformance[0].cleanSheet)
+
     }
 }

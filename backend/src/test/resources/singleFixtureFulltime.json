@@ -146,6 +146,28 @@
                 },
                 {
                     "time": {
+                        "elapsed": 51,
+                        "extra": null
+                    },
+                    "team": {
+                        "id": 35,
+                        "name": "Bournemouth",
+                        "logo": "https://media.api-sports.io/football/teams/35.png"
+                    },
+                    "player": {
+                        "id": 18815,
+                        "name": "Ryan Fredericks"
+                    },
+                    "assist": {
+                        "id": null,
+                        "name": null
+                    },
+                    "type": "Goal",
+                    "detail": "Own Goal",
+                    "comments": null
+                },
+                {
+                    "time": {
                         "elapsed": 59,
                         "extra": null
                     },

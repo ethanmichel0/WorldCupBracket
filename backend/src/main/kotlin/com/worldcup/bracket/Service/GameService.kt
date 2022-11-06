@@ -48,16 +48,10 @@ class GameService(private val gameRepository : GameRepository,
                     game.awayScore = responseWrapper.response[0].goals.away!!
                     game.currentMinute = responseWrapper.response[0].fixture.status.elapsed!!
                     setPlayerStatistics(
-                        responseWrapper.response[0].players!![0].players,
+                        responseWrapper.response[0].players!![0].players + responseWrapper.response[0].players!![1].players,
                         responseWrapper.response[0].events!!,
                         game,
-                        responseWrapper.response[0].players!![0].team == game.home)
-
-                    setPlayerStatistics(
-                        responseWrapper.response[0].players!![1].players,
-                        responseWrapper.response[0].events!!,
-                        game,
-                        responseWrapper.response[0].players!![1].team == game.home)
+                        )
                 }
                 if (responseWrapper.response[0].fixture.status.long == footballAPIData.STATUS_FINISHED && ! game.scoresAlreadySet) {
                     if (game.knockoutGame) {
@@ -191,37 +185,67 @@ class GameService(private val gameRepository : GameRepository,
                         gameNum))
     }
 
-    private fun setPlayerStatistics(allPlayersOneTeam: List<PlayersNested>, allEvents: List<AllEvents>, relatedGame: Game, teamIsHome: Boolean) {
-        val relatedTeamId = if (teamIsHome) relatedGame.home.id!! else relatedGame.away.id!!
-        val allPlayersOneTeamFromRepo = playerRepository.findAllPlayersOnTeam(relatedTeamId)
-        val allPlayerPerformances = mutableListOf<PlayerPerformance>()
-        allPlayersOneTeam.forEach{playerFromAPI ->
-            allPlayersOneTeamFromRepo.filter{playerFromRepo -> playerFromRepo.id == playerFromAPI.player.id}
-            allPlayerPerformances.add(
-                PlayerPerformance(
-                    player=allPlayersOneTeamFromRepo.filter{playerFromRepo -> playerFromRepo.id == playerFromAPI.player.id}[0],
-                    game = relatedGame,
-                    minutes = playerFromAPI.statistics[0].games.minutes,
-                    started = ! (playerFromAPI.statistics[0].games.substitute),
-                    goals = playerFromAPI.statistics[0].goals.total,
-                    assists = playerFromAPI.statistics[0].goals.assists,
-                    yellowCards = playerFromAPI.statistics[0].cards.yellow,
-                    redCards = playerFromAPI.statistics[0].cards.red,
-                    saves = playerFromAPI.statistics[0].goals.saves,
-                    cleanSheet = if (teamIsHome) relatedGame.awayScore == 0 else relatedGame.homeScore == 0,
-                    penaltySaves = playerFromAPI.statistics[0].penalty.saved,
-                    penaltyMisses = playerFromAPI.statistics[0].penalty.missed
-                )
-            )
-        }
-        // find all own goals (in "allEvents" and subtract points)
-        allEvents.filter{event -> event.detail == "Own Goal"}
-            .forEach{event -> allPlayerPerformances.filter{pp -> pp.player.id == event.player.id}[0].ownGoals ++}
+    private fun setPlayerStatistics(allPlayersBothTeams: List<PlayersNested>, allEvents: List<AllEvents>, relatedGame: Game) {
+        logger.info("setting stats")
+        val homeTeamId = relatedGame.home.id!!
+        val awayTeamId = relatedGame.away.id!!
+        val allPlayersInSameGameFromRepo = playerRepository.findAllPlayersFromOneGame(homeTeamId,awayTeamId)
 
-        playerPerformanceRepository.saveAll(allPlayerPerformances)
+        // we will create a new player performance the first time entering this method, otherwise will use existing records
+        // this is why it is declared as a mutable list even though when retrieved from the database it will not be used as a mutable list,
+        // only used as mutable list the first time when we are creating player performances
+        val playerPerformances : MutableList<PlayerPerformance> = playerPerformanceRepository.findAllPlayerPerformancesByGame(relatedGame.fixtureId).toMutableList()
+        val firstTimeCreatingPerformances = playerPerformances.size == 0
+        
+
+        allPlayersBothTeams.forEach{playerFromAPI ->
+            val playerFromRepo = allPlayersInSameGameFromRepo.filter{playerFromRepo -> playerFromRepo.id == playerFromAPI.player.id}[0]
+            if (firstTimeCreatingPerformances) {
+                playerPerformances.add(
+                    PlayerPerformance(
+                        player=playerFromRepo,
+                        game = relatedGame,
+                        minutes = playerFromAPI.statistics[0].games.minutes,
+                        started = ! (playerFromAPI.statistics[0].games.substitute),
+                        goals = playerFromAPI.statistics[0].goals.total,
+                        assists = playerFromAPI.statistics[0].goals.assists,
+                        yellowCards = playerFromAPI.statistics[0].cards.yellow,
+                        redCards = playerFromAPI.statistics[0].cards.red,
+                        saves = playerFromAPI.statistics[0].goals.saves,
+                        cleanSheet = if (playerFromRepo.team == relatedGame.home) relatedGame.awayScore == 0 else relatedGame.homeScore == 0,
+                        penaltySaves = playerFromAPI.statistics[0].penalty.saved,
+                        penaltyMisses = playerFromAPI.statistics[0].penalty.missed
+                    )
+                )
+            } else {
+                val relevantPlayerPerformance = playerPerformances.filter{pp -> pp.player.id == playerFromAPI.player.id}[0];
+                relevantPlayerPerformance.minutes = playerFromAPI.statistics[0].games.minutes
+                relevantPlayerPerformance.goals = playerFromAPI.statistics[0].goals.total
+                relevantPlayerPerformance.assists = playerFromAPI.statistics[0].goals.assists
+                relevantPlayerPerformance.yellowCards = playerFromAPI.statistics[0].cards.yellow
+                relevantPlayerPerformance.redCards = playerFromAPI.statistics[0].cards.red
+                relevantPlayerPerformance.saves = playerFromAPI.statistics[0].goals.saves
+                relevantPlayerPerformance.cleanSheet = if (playerFromRepo.team == relatedGame.home) relatedGame.awayScore == 0 else relatedGame.homeScore == 0
+                relevantPlayerPerformance.penaltySaves = playerFromAPI.statistics[0].penalty.saved
+                relevantPlayerPerformance.penaltyMisses = playerFromAPI.statistics[0].penalty.missed
+            }
+        }
+
+        allEvents
+            .forEach{event ->
+                // the api marks own goals as an event but not under each player as an individual statistic.
+                // thus we must filter to find the event and add it to the corresponding player 
+                if (event.detail == "Own Goal") {
+                    val allRelevantPerformances = playerPerformances.filter{pp -> pp.player.id == event.player.id}
+                    allRelevantPerformances[0].ownGoals ++
+                }
+            }
+
+        playerPerformanceRepository.saveAll(playerPerformances)
+
         if (relatedGame.scoresAlreadySet) { // indicates that the came is over and we can increment cummulative player stats
             val playersToUpdate = mutableListOf<Player>()
-            allPlayerPerformances.forEach{
+            playerPerformances.forEach{
                 pp -> 
                 var markedForUpdate = false
                 if (pp.goals != null && pp.goals!! > 0) {
