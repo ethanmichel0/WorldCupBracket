@@ -9,6 +9,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
+import org.springframework.security.crypto.factory.PasswordEncoderFactories
+import org.springframework.security.crypto.password.PasswordEncoder
 
 import org.springframework.security.config.Customizer.withDefaults
 
@@ -22,7 +24,7 @@ public class SecurityConfig(private val authenticationSuccessHandler : Authentic
         return http
                 .csrf{csrf -> csrf.disable()}
                 .authorizeRequests{auth -> 
-                    auth.antMatchers("/api/brackets").authenticated()
+                    auth.antMatchers("/api/draftgroups").authenticated()
                     auth.antMatchers("/**").permitAll()
                 }
                 .oauth2Login()
@@ -33,5 +35,10 @@ public class SecurityConfig(private val authenticationSuccessHandler : Authentic
                 // https://itnext.io/how-to-prevent-cross-site-request-forgery-of-legitime-cross-site-request-5b59a6a56808
                 .and()
                 .build()
+    }
+
+    @Bean
+    fun passwordEncoder(): PasswordEncoder {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder()
     }
 }

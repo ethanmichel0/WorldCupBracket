@@ -8,16 +8,23 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 
+import java.security.Principal
+
+import com.worldcup.bracket.DTO.NewDraftGroup
+import com.worldcup.bracket.Service.DraftGroupService
+
 
 @RestController
-class DraftGroupController() {
+class DraftGroupController(private val draftGroupService : DraftGroupService) {
     @GetMapping("/api/draftgroups/{draftGroupId}")
     fun getSpecificDraftGroup(@PathVariable draftGroupId : String) : String {
         return "Testing if redirection woroking"
     }
 
     @PostMapping("/api/draftgroups")
-    fun createNewDraftGroup() {}
+    fun createNewDraftGroup(@RequestBody body : NewDraftGroup, principal: Principal) {
+        draftGroupService.saveNewDraftGroup(body,principal)
+    }
 
     @PutMapping("/api/draftgroups/{draftGroupId}/draftTime")
     fun setDraftTime(@PathVariable draftGroupId : String) {}

@@ -7,7 +7,7 @@ import org.bson.types.ObjectId
 
 
 @Document(collection="draftgroups")
-data class DraftGroups(
+data class DraftGroup(
     @Id 
     val id : ObjectId = ObjectId.get(),
     val name: String, 
