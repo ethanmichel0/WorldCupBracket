@@ -1,4 +1,4 @@
-package com.worldcup.bracket.Seeder
+package com.worldcup.bracket.Configuration
 
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
@@ -90,12 +90,16 @@ class DataInitializer(
         }
 
         runBlocking {
-            val allPlayersAdded = teamsWrapper.teams.map {
-                async(Dispatchers.IO) { 
-                    addPlayersFromTeam(it)
-                }
-            }.awaitAll()
-            for (playersOnOneTeam in allPlayersAdded) {
+            val allPlayersByTeam : MutableList<Deferred<List<Player>>> = mutableListOf<Deferred<List<Player>>>()
+            teamsWrapper.teams.forEach {
+                allPlayersByTeam.add(async(Dispatchers.IO) { 
+                    addPlayersFromTeam(it,1)
+                })
+                allPlayersByTeam.add(async(Dispatchers.IO) {
+                    addPlayersFromTeam(it,2)
+                })
+            }
+            for (playersOnOneTeam in allPlayersByTeam.awaitAll()) {
                 allPlayers.addAll(playersOnOneTeam)
             }
         }
@@ -105,8 +109,8 @@ class DataInitializer(
         playerRepository.saveAll(allPlayers)
     }
 
-    suspend fun addPlayersFromTeam(team: Team) : List<Player> {
-        val playersRequest = BuildNewRequest(footballAPIData.getAllPlayersOnTeam(team.id!!),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+    suspend fun addPlayersFromTeam(team: Team, page: Int) : List<Player> {
+        val playersRequest = BuildNewRequest(footballAPIData.getAllPlayersOnTeam(team.id!!, page),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
         val playersResponse = httpClient.send(playersRequest, HttpResponse.BodyHandlers.ofString());
         val playersResponseWrapper : PlayersAPIResponseWrapper = Gson().fromJson(playersResponse.body(), PlayersAPIResponseWrapper::class.java)
         val playersList = mutableListOf<Player>()

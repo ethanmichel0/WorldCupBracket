@@ -9,10 +9,10 @@ import org.bson.types.ObjectId
 @Document(collection="playerdrafts")
 data class PlayerDraft(
     @Id 
-    val id : ObjectId = ObjectId.get(),
+    val id: ObjectId = ObjectId.get(),
+    val players: MutableList<Player> = mutableListOf<Player>(),
     var points: Int = 0, 
-    var user: User, 
-    val createdDate: Long = System.currentTimeMillis() / 1000,
-    val players: List<Player>
+    val user: User,
+    val draftGroup: DraftGroup
 )
     

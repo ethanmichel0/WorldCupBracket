@@ -9,7 +9,7 @@ data class Player(
     val team: Team,
     val position: Position,
     @Id 
-    var id: Int,
+    var id: String,
     val name: String,
     val age: Int,
     val height: String

@@ -14,7 +14,7 @@ class FootballAPIData(private val secretsConfigurationProperties : SecretsConfig
     lateinit var FIXTURES_API: String
     fun setSingleFixtureAPI(id : String) = BASE_API + "fixtures?id=${id}"
 
-    fun getAllPlayersOnTeam(team : String) = BASE_API + "players?team=${team}&league=1&season=2018&page=1"
+    fun getAllPlayersOnTeam(team : String, page : Int) = BASE_API + "players?team=${team}&league=1&season=2018&page=${page}"
     // API uses pagination    
 
 

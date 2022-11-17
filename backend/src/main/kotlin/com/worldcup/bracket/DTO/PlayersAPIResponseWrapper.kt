@@ -16,7 +16,7 @@ data class PlayersWrapper(
     val height: String,
     val weight: String,
     val age: Int,
-    val id: Int
+    val id: String
 )
 
 data class StatisticsWrapper(

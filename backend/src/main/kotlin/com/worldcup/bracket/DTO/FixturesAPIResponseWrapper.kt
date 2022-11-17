@@ -56,7 +56,7 @@ data class PlayersNested( // all players per team
 )
 
 data class PlayerInfo(
-    val id: Int,
+    val id: String,
     val name: String
 )
 

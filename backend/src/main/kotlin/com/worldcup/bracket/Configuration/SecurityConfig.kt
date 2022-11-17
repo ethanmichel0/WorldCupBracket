@@ -1,4 +1,4 @@
-package com.worldcup.bracket.Security
+package com.worldcup.bracket.Configuration
 
 import kotlin.Throws
 import org.springframework.context.annotation.Bean;
@@ -29,8 +29,7 @@ public class SecurityConfig(private val authenticationSuccessHandler : Authentic
                 }
                 .oauth2Login()
                 .successHandler(authenticationSuccessHandler)
-                .and().csrf()
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                //.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 // csrf token is stored in browser as cookie XSRF-TOKEN, it is send along with POST requests in request header X-XSRF-TOKEN
                 // https://itnext.io/how-to-prevent-cross-site-request-forgery-of-legitime-cross-site-request-5b59a6a56808
                 .and()

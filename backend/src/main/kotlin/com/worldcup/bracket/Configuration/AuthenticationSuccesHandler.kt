@@ -1,4 +1,4 @@
-package com.worldcup.bracket.Security
+package com.worldcup.bracket.Configuration
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -39,11 +39,11 @@ public class AuthenticationSuccessHandler : SavedRequestAwareAuthenticationSucce
     @Throws(ServletException::class,IOException::class)
     override public fun onAuthenticationSuccess(request : HttpServletRequest, response : HttpServletResponse, authentication : Authentication)  {
         //if redirected from some specific url, need to remove the cachedRequest to force use defaultTargetUrl
-        val requestCache : RequestCache = HttpSessionRequestCache();
-        val savedRequest : SavedRequest = requestCache.getRequest(request, response);
         val userDetails : DefaultOidcUser = authentication.getPrincipal() as DefaultOidcUser
         response.setHeader("Authorization","Bearer " + userDetails.getIdToken().getTokenValue())
-        userRepository.save(User(userDetails.getName(), userDetails.getEmail(), AuthService.GOOGLE))
+        if (userRepository.findByName(userDetails.getName()).size == 0) {
+            userRepository.save(User(userDetails.getName(), userDetails.getEmail(), AuthService.GOOGLE))
+        }
         redirectStrategy.sendRedirect(request, response, "/api/testAuth");
     }
 }
