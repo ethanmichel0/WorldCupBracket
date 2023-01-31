@@ -13,6 +13,8 @@ data class Game(
     var date: Long,
     @Id 
     var fixtureId: String,
+    var season: Int,
+    var league: League,
     var gameNumber: Int? = -1) { // game number used for knockout games
         var homeScore : Int = 0
         var awayScore : Int = 0

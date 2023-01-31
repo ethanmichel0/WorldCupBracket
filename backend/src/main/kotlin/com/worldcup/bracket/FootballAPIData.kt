@@ -10,11 +10,16 @@ class FootballAPIData(private val secretsConfigurationProperties : SecretsConfig
 
     @Value("\${footballAPI.baseAPI}")
     lateinit var BASE_API: String
-    @Value("\${footballAPI.baseAPI}fixtures?season=2022&league=1")
-    lateinit var FIXTURES_API: String
+
+    fun setFixturesAPI(league: String, season: String) = BASE_API + "fixtures?season=${season}&league=${league}"
+
+    fun setLeagueAPI(league: String) = BASE_API + "leagues?id=${league}"
+
+    fun setStandingsAPI(league: String, season: Int) = BASE_API + "standings?league={league}&season={season}"
+
     fun setSingleFixtureAPI(id : String) = BASE_API + "fixtures?id=${id}"
 
-    fun getAllPlayersOnTeam(team : String, page : Int) = BASE_API + "players?team=${team}&league=1&season=2018&page=${page}"
+    fun getAllPlayersOnTeam(team : String) = BASE_API + "players/squads?team=${team}"
     // API uses pagination    
 
 

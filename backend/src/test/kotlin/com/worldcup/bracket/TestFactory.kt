@@ -20,14 +20,14 @@ fun addPlayersFromTeam(team: Team, footballAPIData: FootballAPIData) : List<Play
     val playersResponse = httpClient.send(playersRequest, HttpResponse.BodyHandlers.ofString());
     val playersResponseWrapper : PlayersAPIResponseWrapper = Gson().fromJson(playersResponse.body(), PlayersAPIResponseWrapper::class.java)
     val playersList = mutableListOf<Player>()
-    for (player in playersResponseWrapper.response) {
+    for (player in playersResponseWrapper.response[0].players) {
         playersList.add(Player(
-            team,
-            player.statistics[0].games.position,
-            player.player.id,
-            player.player.name,
-            player.player.age,
-            player.player.height,
+            team = team,
+            id = player.id,
+            name = player.name,
+            age = player.age,
+            number = player.number,
+            position = player.position
             ))
     }
     return playersList 

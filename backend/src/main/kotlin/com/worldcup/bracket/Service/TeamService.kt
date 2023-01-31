@@ -16,8 +16,8 @@ class TeamService(private val teamRepository : TeamRepository,
     fun sortTeamsInGroup(groupLetter : String) {
         val group : MutableList<Team> = teamRepository.findByGroup(groupLetter).toMutableList()
         val pointsComparison = compareByDescending<Team>{it.pointsGroup}
-            .thenByDescending{it.goalsDifferenceGroup}
-            .thenByDescending{it.goalsForGroup}
+            .thenByDescending{it.goalsDifference}
+            .thenByDescending{it.goalsFor}
         group.sortWith(pointsComparison)
         group[0].positionGroup = 1
         group[1].positionGroup = 2

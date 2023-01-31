@@ -19,7 +19,7 @@ import com.worldcup.bracket.WireMockUtility
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.PlayerRepository
-import com.worldcup.bracket.Repository.PlayerPerformanceRepository
+import com.worldcup.bracket.Repository.PlayerPerformanceSoccerRepository
 import com.worldcup.bracket.addPlayersFromTeam
 
 import org.springframework.data.repository.findByIdOrNull
@@ -53,7 +53,7 @@ class SingleGameResultTests {
     private lateinit var playerRepository: PlayerRepository
 
     @Autowired
-    private lateinit var playerPerformanceRepository: PlayerPerformanceRepository
+    private lateinit var playerPerformanceRepository: PlayerPerformanceSoccerRepository
 
     @BeforeAll 
     fun addPlayersFromBothTeamsAndMock() {
