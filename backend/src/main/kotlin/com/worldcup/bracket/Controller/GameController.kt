@@ -8,8 +8,4 @@ import com.worldcup.bracket.Entity.Game
 
 @RestController
 class GameController(private val gameRepository: GameRepository) {
-    @GetMapping("/api/games")
-    fun getAllGamesSortByDateAsc() : List<Game> {
-        return gameRepository.findByOrderByDateAsc()
-    }
 }

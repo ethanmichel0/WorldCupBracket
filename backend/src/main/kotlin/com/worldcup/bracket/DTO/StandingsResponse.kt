@@ -10,8 +10,10 @@ data class StandingsNested(
 )
 
 data class LeagueNestedWithinStandings(
-    val standings: List<Standings>
+    val standings: List<List<Standings>> 
 )
+
+// for world cup and other tournaments with groups double nesting allows rankings by groups
 
 data class Standings(
     val team: TeamInfo,

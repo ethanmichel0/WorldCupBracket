@@ -17,7 +17,7 @@ data class FixturesWrapper(
 // For multiple fixtures they are omitted
 
 data class FixtureDTO(
-    val timestamp: String,
+    val timestamp: Long,
     val id: String,
     val status: StatusNested
 )
@@ -41,6 +41,7 @@ data class ScoreNested(
 
 data class StatusNested(
     val long: String,
+    val short: String,
     val elapsed: Int?
 ) 
 // "Match Finished" indicates that the match is over

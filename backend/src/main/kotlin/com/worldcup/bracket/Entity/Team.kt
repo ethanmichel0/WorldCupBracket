@@ -6,10 +6,10 @@ import org.springframework.data.annotation.Id
 @Document(collection="teams")
 class Team (
     val name: String, 
-    val group: String,
+    val group: String? = null,
     @Id
     val id: String,  // will be same as Id used in football api for simplicity and hence passed in
-    val logo: String) {
+    val logo: String? = null) {
 
     override fun equals(other: Any?): Boolean =
         other is Team && other.name == name

@@ -12,7 +12,7 @@ data class PlayerSeason(
     val position: Position,
     val number: Int,
     @Id 
-    val id: String = ObjectId.get(),
+    val id: ObjectId = ObjectId.get(),
 ) {
     var current = true
     var goals : Int = 0

@@ -16,7 +16,7 @@ data class PlayerPerformanceSoccer (
     var penaltyMisses: Int? = 0,
     var ownGoals: Int = 0,
 
-    override val player: Player,
+    override val playerSeason: PlayerSeason,
     override val game: Game,
     override var minutes: Int?,
     @Id 

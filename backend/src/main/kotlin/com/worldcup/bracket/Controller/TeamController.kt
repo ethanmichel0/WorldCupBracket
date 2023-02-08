@@ -27,6 +27,7 @@ class TeamController(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val teamService: TeamService) {
+        /* 
     @GetMapping("/api/teams/{teamId}")
     fun getTeam(@PathVariable teamId: String) : ResponseEntity<TeamWithExtraInfo>{
         val team = teamRepository.findById(teamId).unwrap()
@@ -37,16 +38,18 @@ class TeamController(
             gameRepository.getAllGamesFromTeamPast(teamId, System.currentTimeMillis()/1000),
             playerRepository.findAllPlayersOnTeam(teamId)
         ))
-    }
+    } */
 
     @GetMapping("/api/standings")
     fun getAllGroups() : List<Team> {
-        return teamRepository.findByOrderByGroup()
+        return listOf<Team>()
+        //return teamRepository.findByOrderByGroup()
     }
 
     @PostMapping("/api/groups/tieBreaker")
     fun overrideTieBreak(@RequestBody overrideGroupSettings : OverrideGroupSettings) : List<Team> {
-        return teamService.overrideGroupOrdering(overrideGroupSettings)
+        //return teamService.overrideGroupOrdering(overrideGroupSettings)
+        return listOf<Team>()
     }
 }
 

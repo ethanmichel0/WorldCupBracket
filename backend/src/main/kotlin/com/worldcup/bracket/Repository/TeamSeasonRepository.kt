@@ -7,6 +7,6 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.mongodb.repository.Query;
 
 interface TeamSeasonRepository : MongoRepository<TeamSeason,String>{
-    @Query(value = "{'season' : ?0, 'league.id' : ?1}")
+    @Query(value = "{'season' : ?0, 'league._id' : ?1}")
     fun findAllTeamSeasonsBySeasonAndLeague(season: Int, league: String) : List<TeamSeason>
 }

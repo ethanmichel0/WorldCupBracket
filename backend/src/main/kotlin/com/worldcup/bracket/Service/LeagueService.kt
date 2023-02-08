@@ -41,16 +41,18 @@ class LeagueService(
     private val teamRepository : TeamRepository,
     private val playerRepository : PlayerRepository,
     private val playerSeasonRepository : PlayerSeasonRepository,
-    private val footballAPIData : FootballAPIData) {
+    private val footballAPIData : FootballAPIData,
+    private val gameService : GameService) {
     
     val httpClient = HttpClient.newHttpClient()
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
 
 
     public fun addNewSeasonForLeague(leagueId: String, newLeagueOptions: NewLeagueOptions) {
-        val relevantLeagueFromDB = leagueRepository.findByIdOrNull(leagueId)
+        var relevantLeagueFromDB = leagueRepository.findByIdOrNull(leagueId)
         
-        val requestLeague = BuildNewRequest(footballAPIData.setLeagueAPI(leagueId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+        val requestLeague = BuildNewRequest(footballAPIData.getLeagueEndpoint(leagueId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+
         val responseLeague = httpClient.send(requestLeague, HttpResponse.BodyHandlers.ofString());
         val responseWrapperLeague : LeagueResponse = Gson().fromJson(responseLeague.body(), LeagueResponse::class.java)
 
@@ -59,7 +61,7 @@ class LeagueService(
         val seasons = responseWrapperLeague.response[0].seasons
         val latestSeason = seasons[seasons.lastIndex].year
         if (relevantLeagueFromDB == null) {
-            val relevantLeagueFromDB = League(
+            relevantLeagueFromDB = League(
                     name=responseWrapperLeague.response[0].league.name,
                     id=responseWrapperLeague.response[0].league.id,
                     logo=responseWrapperLeague.response[0].league.logo,
@@ -73,34 +75,38 @@ class LeagueService(
             
         }
 
-        val allRelevantTeamSeasons = teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(latestSeason,responseWrapperLeague.response[0].league.name)
+        val allRelevantTeamSeasons = teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(latestSeason,responseWrapperLeague.response[0].league.id).toMutableList()
         if (allRelevantTeamSeasons.size == 0) {
             firstTimeAddingTeamThisSeason = true
-            val requestStandings = BuildNewRequest(footballAPIData.setStandingsAPI(leagueId,latestSeason),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+            val requestStandings = BuildNewRequest(footballAPIData.getStandingsEndpoint(leagueId,latestSeason),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
             val responseStandings = httpClient.send(requestStandings, HttpResponse.BodyHandlers.ofString());
             val responseWrapperStandings : StandingsResponse = Gson().fromJson(responseStandings.body(), StandingsResponse::class.java)
 
-            val teamSeasons = mutableListOf<TeamSeason>()
             val teams = mutableListOf<Team>()
-            for (teamInfo in responseWrapperStandings.response[0].league.standings) {
-                val relevantTeam = Team(
-                    name=teamInfo.team.name,
-                    id=teamInfo.team.id,
-                    logo=teamInfo.team.logo,
-                    group=teamInfo.group
-                )
-                if (teamRepository.findByName(teamInfo.team.name).size==0) {
-                    teams.add(relevantTeam)
-                }
+            for (standingsGroup in responseWrapperStandings.response[0].league.standings) {
+                // standings is a double array to allow for standings by group in competitons such as world cup, champions league, etc.
+                for (teamInfo in standingsGroup) {
+                    val relevantTeam = Team(
+                        name=teamInfo.team.name,
+                        id=teamInfo.team.id,
+                        logo=teamInfo.team.logo,
+                        group=teamInfo.group
+                        )
 
-                teamSeasons.add(TeamSeason(
-                    team = relevantTeam,
-                    league = relevantLeagueFromDB!!,
-                    season = latestSeason,
-                    position = teamInfo.rank
-                ))
+                    if (teamRepository.findByName(teamInfo.team.name).size==0) {
+                        teams.add(relevantTeam)
+                    }
+
+                    allRelevantTeamSeasons.add(TeamSeason(
+                        team = relevantTeam,
+                        league = relevantLeagueFromDB,
+                        season = latestSeason,
+                        position = teamInfo.rank
+                    ))
+                }   
             }
-            teamSeasonRepository.saveAll(teamSeasons)
+
+            teamSeasonRepository.saveAll(allRelevantTeamSeasons)
             teamRepository.saveAll(teams)
         }
 
@@ -119,17 +125,18 @@ class LeagueService(
 
             for ((players,playerSeasons) in allPlayersByTeam.awaitAll()) {
                 allPlayers.addAll(players)
-                allPlayerSeasons.addAll(allPlayerSeasons)
+                allPlayerSeasons.addAll(playerSeasons)
             }
         }
 
         playerRepository.saveAll(allPlayers)
         playerSeasonRepository.saveAll(allPlayerSeasons)
+        gameService.setLeagueGames(leagueId,latestSeason)
     }
 
 
     private suspend fun addPlayersFromTeam(teamSeason: TeamSeason, firstTimeAddingTeamThisSeason: Boolean) : Pair<List<Player>,List<PlayerSeason>> {
-        val playersRequest = BuildNewRequest(footballAPIData.getAllPlayersOnTeam(teamSeason.team.id!!),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+        val playersRequest = BuildNewRequest(footballAPIData.getAllPlayersOnTeamEndpoint(teamSeason.team.id),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
         val playersResponse = httpClient.send(playersRequest, HttpResponse.BodyHandlers.ofString());
         val playersResponseWrapper : PlayersAPIResponseWrapper = Gson().fromJson(playersResponse.body(), PlayersAPIResponseWrapper::class.java)
         
@@ -154,10 +161,6 @@ class LeagueService(
                 playersToAddToDB.add(relevantPlayerToAddToDB)
             }
 
-            if(! firstTimeAddingTeamThisSeason) {
-                
-            }
-
             // add all players for beginning of season and all new transferred players after transfer breaks during the season
             if (firstTimeAddingTeamThisSeason || playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(teamSeason.season,player.id).size == 0) {
                 playersSeasonsToAddToDB.add(relevantPlayerSeason)
@@ -169,13 +172,12 @@ class LeagueService(
         
         if (!firstTimeAddingTeamThisSeason) {
             val allCurrentPlayerIds : List<String> = playersResponseWrapper.response[0].players.map{it.id}
-            playerSeasonRepository.findAllPlayerSeasonsByTeamSeason(teamSeason.id).filter{! allCurrentPlayerIds.contains(it.player.id) }.
+            playerSeasonRepository.findAllPlayerSeasonsByTeamSeason(teamSeason.id.toString()).filter{! allCurrentPlayerIds.contains(it.player.id) }.
                 forEach{
                     it.current = false
                     playersSeasonsToAddToDB.add(it)
                 }
         }
-        
         return Pair(playersToAddToDB,playersSeasonsToAddToDB)
     }
 }

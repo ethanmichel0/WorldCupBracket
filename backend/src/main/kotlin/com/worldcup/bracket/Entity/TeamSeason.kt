@@ -11,10 +11,10 @@ data class TeamSeason(
     val team: Team,
     val season: Int,
     val league: League,
-    var position: Int = -1
-) {
+    var position: Int = -1,
     @Id 
-    val id: String = ObjectId.get()
+    val id: ObjectId = ObjectId.get()
+) {
 
     var winsGroup: Int = 0
     var lossesGroup: Int = 0

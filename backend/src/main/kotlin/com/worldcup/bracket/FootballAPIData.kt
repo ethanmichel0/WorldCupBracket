@@ -4,6 +4,9 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.beans.factory.annotation.Autowired
 
+import java.util.Date
+import java.util.Calendar
+import java.text.SimpleDateFormat
 
 @Component
 class FootballAPIData(private val secretsConfigurationProperties : SecretsConfigurationProperties) {
@@ -11,17 +14,38 @@ class FootballAPIData(private val secretsConfigurationProperties : SecretsConfig
     @Value("\${footballAPI.baseAPI}")
     lateinit var BASE_API: String
 
-    fun setFixturesAPI(league: String, season: String) = BASE_API + "fixtures?season=${season}&league=${league}"
+    fun getAllFixturesInSeasonEndpoint(league: String, season: Int) = BASE_API + "fixtures?season=${season}&league=${league}"
 
-    fun setLeagueAPI(league: String) = BASE_API + "leagues?id=${league}"
+    fun getAllUpcomingFixturesInSeasonEndpoint(league: String, season: Int) : String {
 
-    fun setStandingsAPI(league: String, season: Int) = BASE_API + "standings?league={league}&season={season}"
+        // NOTE: this doesn't get the actual last day of the season (e.g. May 25th) but rather will return December 31st, 2023 for the 22-23 season 
+        // or December 31st 2024 for 23-24 season. This is so we can retrieve all games from the API from the current date to the end of the season
+        // more generically (different leagues may have different end dates though if we use December 31st then we can always get the rest of the games
+        // for the current season)
 
-    fun setSingleFixtureAPI(id : String) = BASE_API + "fixtures?id=${id}"
+        val c = Calendar.getInstance()
+        c.set(Calendar.YEAR, season+1)
+        c.set(Calendar.MONTH,11)
+        c.set(Calendar.DAY_OF_MONTH,31)
 
-    fun getAllPlayersOnTeam(team : String) = BASE_API + "players/squads?team=${team}"
-    // API uses pagination    
+        val formattedDateEndOfSeason = SimpleDateFormat("yyyy-MM-dd").format(c.getTime())
 
+        val c2 = Calendar.getInstance()
+        c2.setTime(Date())
+        val formattedDateToday = SimpleDateFormat("yyyy-MM-dd").format(c2.getTime())
+        val finalEndpoint = BASE_API + "fixtures?season=${season}&league=${league}?from=${formattedDateToday}&to=${formattedDateEndOfSeason}"
+        return finalEndpoint
+    }
+
+    fun getLeagueEndpoint(league: String) = BASE_API + "leagues?id=${league}"
+
+    fun getStandingsEndpoint(league: String, season: Int) = BASE_API + "standings?league=${league}&season=${season}"
+
+    fun getSingleFixtureEndpoint(id : String) = BASE_API + "fixtures?id=${id}"
+
+    fun getAllPlayersOnTeamEndpoint(team : String) = BASE_API + "players/squads?team=${team}"
+
+    fun getTeamInfoEndpoint(team : String) = BASE_API + "teams?id=${team}"
 
     val X_RAPID_API_HOST = "v3.football.api-sports.io"
     val FOOTBALL_API_KEY: String = secretsConfigurationProperties.footballApiKey

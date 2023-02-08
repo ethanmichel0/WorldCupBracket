@@ -23,6 +23,11 @@ class LeagueController(private val leagueService : LeagueService) {
 
     @PostMapping("/api/league/{leagueId}")
     fun addNewSeason(@PathVariable leagueId : String, @RequestBody newLeagueOptions: NewLeagueOptions) : ResponseEntity<String> {
-        leagueService.addNewSeasonForLeague(leagueId, newLeagueOptions)
+        try {
+            leagueService.addNewSeasonForLeague(leagueId, newLeagueOptions)
+            return ResponseEntity.status(HttpStatus.OK).body("")
+        } catch (e: Exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
+        }
     }
 }
