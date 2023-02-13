@@ -107,11 +107,6 @@ class LeagueServiceTests {
 
         var ouattara = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"284797") // arrived during transfer window
         assertEquals(0,ouattara.size,"Ouattara arrived at Bournemouth during transfer window (shouldn't yet be at Bournemouth)")
-
-        var allGames = gameRepository.findAll()
-
-        assertEquals(2,allGames.size, "since our pretend premier league only has two teams, there are only two fixtures where they play each other twice, each once at home") 
-        // since our pretend premier league only has two teams, there are only two fixtures where they play each other twice, each once at home
         
         // simulate transfer window
 
@@ -131,15 +126,22 @@ class LeagueServiceTests {
 
         val dennis = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"151756") // left during transfer window
         assertEquals(false,dennis[0].current,"Dennis left Bournemouth during transfer window")
+    }
+}
 
-        // since a game was rescheduled check that the postponed one was deleted from DB and new one was added
+/* 
+        var allGames = gameRepository.findAll()
+
+        assertEquals(2,allGames.size, "since our pretend premier league only has two teams, there are only two fixtures where they play each other twice, each once at home") 
+        // since our pretend premier league only has two teams, there are only two fixtures where they play each other twice, each once at home
+
+                // since a game was rescheduled check that the postponed one was deleted from DB and new one was added
         allGames = gameRepository.findAll()
         assertEquals(allGames.size,2,"postponed game should be deleted from db, new game added")
         val firstGameId = allGames[0].fixtureId
         val secondGameId = allGames[1].fixtureId
         assertTrue(firstGameId=="86824099" || secondGameId == "86824099")
-    }
-}
+*/
 
 
 

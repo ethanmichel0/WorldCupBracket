@@ -17,12 +17,14 @@ import com.worldcup.bracket.Repository.TeamSeasonRepository
 import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.PlayerRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
+import com.worldcup.bracket.Repository.ScheduledTaskRepository
 
 import com.worldcup.bracket.Entity.League
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.TeamSeason
 import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.Entity.PlayerSeason
+import com.worldcup.bracket.Entity.TaskType
 
 import com.worldcup.bracket.FootballAPIData
 
@@ -34,6 +36,10 @@ import com.google.gson.GsonBuilder;
 
 import kotlinx.coroutines.*
 
+import java.time.Duration
+import java.util.Calendar
+import java.util.GregorianCalendar
+
 @Service
 class LeagueService(
     private val leagueRepository : LeagueRepository,
@@ -42,7 +48,9 @@ class LeagueService(
     private val playerRepository : PlayerRepository,
     private val playerSeasonRepository : PlayerSeasonRepository,
     private val footballAPIData : FootballAPIData,
-    private val gameService : GameService) {
+    private val gameService : GameService,
+    private val schedulerService : SchedulerService,
+    private val scheduledTaskRepository : ScheduledTaskRepository) {
     
     val httpClient = HttpClient.newHttpClient()
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
@@ -131,7 +139,28 @@ class LeagueService(
 
         playerRepository.saveAll(allPlayers)
         playerSeasonRepository.saveAll(allPlayerSeasons)
-        gameService.setLeagueGames(leagueId,latestSeason)
+
+        val date = GregorianCalendar();
+        // reset hour, minutes, seconds and millis
+        date.set(Calendar.HOUR_OF_DAY, 0);
+        date.set(Calendar.MINUTE, 0);
+        date.set(Calendar.SECOND, 0);
+        date.set(Calendar.MILLISECOND, 0);
+
+        // next day
+        date.add(Calendar.DAY_OF_MONTH, 1);
+
+        val scheduleTask = schedulerService.addNewTask(
+            task = Runnable {
+                gameService.setLeagueGames(leagueId,latestSeason)
+                },
+            startTime = date.toInstant(),
+            repeatEvery = Duration.ofDays(1),
+            type = TaskType.CheckGameSchedule,
+            relatedEntity = leagueId
+        )
+
+        scheduledTaskRepository.save(scheduleTask)
     }
 
 

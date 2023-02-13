@@ -18,15 +18,20 @@ import com.worldcup.bracket.Repository.TeamSeasonRepository
 import com.worldcup.bracket.Repository.LeagueRepository
 import com.worldcup.bracket.Repository.PlayerPerformanceSoccerRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
+import com.worldcup.bracket.Repository.ScheduledTaskRepository
 
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.Entity.PlayerPerformanceSoccer
 import com.worldcup.bracket.Entity.PlayerSeason
+import com.worldcup.bracket.Entity.TaskType
+import com.worldcup.bracket.Entity.ScheduledTask
 
 import com.worldcup.bracket.Service.BuildNewRequest
 import com.worldcup.bracket.FootballAPIData
+
+import java.util.GregorianCalendar
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -39,6 +44,8 @@ class GameService(private val gameRepository : GameRepository,
     private val leagueRepository : LeagueRepository,
     private val playerPerformanceSoccerRepository : PlayerPerformanceSoccerRepository,
     private val playerSeasonRepository : PlayerSeasonRepository,
+    private val scheduledTaskRepository : ScheduledTaskRepository,
+    private val schedulerService : SchedulerService,
     private val footballAPIData : FootballAPIData) {
 
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
@@ -60,8 +67,8 @@ class GameService(private val gameRepository : GameRepository,
             val allFixturesResponse = httpClient.send(allFixturesRequest, HttpResponse.BodyHandlers.ofString());
             val allFixturesResponseWrapper = Gson().fromJson(allFixturesResponse.body(), FixturesAPIResponseWrapper::class.java)
             
-            
             val gamesForSeason = mutableListOf<Game>()
+            val allScheduledFixtureRetrievalTasks = mutableListOf<ScheduledTask>()
             for (game in allFixturesResponseWrapper.response) {
                 val relevantHomeTeam = allTeamsInLeague.filter{it.team == game.teams.home}[0]
                 val relevantAwayTeam = allTeamsInLeague.filter{it.team == game.teams.away}[0]
@@ -73,8 +80,21 @@ class GameService(private val gameRepository : GameRepository,
                     fixtureId=game.fixture.id,
                     league=relevantLeagueFromDB
                 ))
+
+                val cal = GregorianCalendar();
+                // reset hour, minutes, seconds and millis
+                cal.setTimeInMillis(game.fixture.timestamp.toLong() * 1000)
+
+                allScheduledFixtureRetrievalTasks.add(schedulerService.addNewTask(
+                    task = Runnable {updateScores(game.fixture.id)},
+                    startTime = cal.toInstant(),
+                    repeatEvery = null,
+                    type = TaskType.GetScoresForFixture,
+                    relatedEntity = game.fixture.id
+                ))
             }
             gameRepository.saveAll(gamesForSeason)
+            scheduledTaskRepository.saveAll(allScheduledFixtureRetrievalTasks)
         } else { // already got past fixtures, this is just to check if upcoming fixtures have had changes in their schedules such as being postponed
             val allFixturesRestOfSeason = BuildNewRequest(footballAPIData.getAllUpcomingFixturesInSeasonEndpoint(leagueId,season),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
             val allFixturesRestOfSeasonResponse = httpClient.send(allFixturesRestOfSeason, HttpResponse.BodyHandlers.ofString());
@@ -82,6 +102,8 @@ class GameService(private val gameRepository : GameRepository,
             
             val postponedGames = mutableListOf<Game>()
             val newlyAddedGames = mutableListOf<Game>()
+            val allScheduledFixtureRetrievalTasks = mutableListOf<ScheduledTask>()
+            val allRelatedFixtureIdsPostponedGames = mutableListOf<String>()
             for (game in allFixturesRestOfSeasonResponseWrapper.response) { // check if any upcoming games have schedule changes, if so update in DB
                 val relevantHomeTeam = allTeamsInLeague.filter{it.team == game.teams.home}[0]
                 val relevantAwayTeam = allTeamsInLeague.filter{it.team == game.teams.away}[0]
@@ -94,13 +116,33 @@ class GameService(private val gameRepository : GameRepository,
                     league=relevantLeagueFromDB)
                 if (game.fixture.status.short == GameService.GAME_POSTPONED) {
                     postponedGames.add(relevantGame)
+                    allRelatedFixtureIdsPostponedGames.add(game.fixture.id) // for later: delete scheduled tasks from DB
                 }
                 else if (! allFixturesInLeague.contains(relevantGame)) {
                     newlyAddedGames.add(relevantGame)
+                    val cal = GregorianCalendar();
+                    cal.setTimeInMillis(game.fixture.timestamp.toLong() * 1000)
+
+                    allScheduledFixtureRetrievalTasks.add(schedulerService.addNewTask(
+                        task = Runnable {updateScores(game.fixture.id)},
+                        startTime = cal.toInstant(),
+                        repeatEvery = null,
+                        type = TaskType.GetScoresForFixture,
+                        relatedEntity = game.fixture.id
+                    ))
                 }
             }
             gameRepository.saveAll(newlyAddedGames)
             gameRepository.deleteAll(postponedGames)
+
+            scheduledTaskRepository.saveAll(allScheduledFixtureRetrievalTasks)
+
+            // first remove tasks to get postpone games updates from scheduler
+            val allRelatedPostponedGames = scheduledTaskRepository.findByRelatedEntityIn(allRelatedFixtureIdsPostponedGames)
+            allRelatedPostponedGames.forEach{postponedGame -> schedulerService.removeTaskFromScheduler(postponedGame.id.toString())}
+            
+            // then remove them from the DB
+            scheduledTaskRepository.deleteAll(allRelatedPostponedGames)
         }
     }
 
