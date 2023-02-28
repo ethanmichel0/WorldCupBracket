@@ -6,6 +6,11 @@ import org.springframework.data.repository.findByIdOrNull
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
+import java.time.Instant
+import java.util.GregorianCalendar
+import java.util.Comparator
+
 import com.google.gson.Gson; 
 import com.google.gson.GsonBuilder;
 
@@ -31,12 +36,9 @@ import com.worldcup.bracket.Entity.ScheduledTask
 import com.worldcup.bracket.Service.BuildNewRequest
 import com.worldcup.bracket.FootballAPIData
 
-import java.util.GregorianCalendar
-
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import java.util.Comparator
 
 @Service
 class GameService(private val gameRepository : GameRepository,
@@ -51,10 +53,6 @@ class GameService(private val gameRepository : GameRepository,
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
 
     val httpClient = HttpClient.newHttpClient()
-
-    companion object { 
-        const val GAME_POSTPONED = "PST"
-    } 
 
     public fun setLeagueGames(leagueId : String, season : Int) {
         val allFixturesInLeague = gameRepository.getAllGamesInLeagueForSeason(leagueId, season)
@@ -114,7 +112,7 @@ class GameService(private val gameRepository : GameRepository,
                     date=game.fixture.timestamp,
                     fixtureId=game.fixture.id,
                     league=relevantLeagueFromDB)
-                if (game.fixture.status.short == GameService.GAME_POSTPONED) {
+                if (game.fixture.status.short == footballAPIData.STATUS_POSTPONED_SHORT) {
                     postponedGames.add(relevantGame)
                     allRelatedFixtureIdsPostponedGames.add(game.fixture.id) // for later: delete scheduled tasks from DB
                 }
@@ -162,7 +160,7 @@ class GameService(private val gameRepository : GameRepository,
                         game,
                         )
                 }
-                if (responseWrapper.response[0].fixture.status.long == footballAPIData.STATUS_FINISHED && ! game.scoresAlreadySet) {
+                if (responseWrapper.response[0].fixture.status.short == footballAPIData.STATUS_FINISHED_SHORT && ! game.scoresAlreadySet) {
                     if (game.knockoutGame) {
                         game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
                         game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
@@ -198,7 +196,16 @@ class GameService(private val gameRepository : GameRepository,
                         }
                     }
                     game.scoresAlreadySet = true;
-                }
+                } else if (! listOf(footballAPIData.STATUS_POSTPONED_SHORT,footballAPIData.STATUS_SUSPENDED_SHORT,footballAPIData.STATUS_ABANDONED_SHORT).contains(responseWrapper.response[0].fixture.status.short)) {
+                    // assuming game is still in progress, schedule next retrieval for a minute in the future (games update every minute)
+                    scheduledTaskRepository.save(schedulerService.addNewTask(
+                        task = Runnable {updateScores(game.fixtureId)},
+                        startTime = Instant.now().plusSeconds(60),
+                        repeatEvery = null,
+                        type = TaskType.GetScoresForFixture,
+                        relatedEntity = game.fixtureId
+                    ))
+                } // TODO if game is abandoned, notify players
                 gameRepository.save(game)
                 teamSeasonRepository.saveAll(listOf(game.home,game.away))
         }

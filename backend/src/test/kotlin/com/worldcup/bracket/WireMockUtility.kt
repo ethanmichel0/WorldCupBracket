@@ -32,6 +32,7 @@ class WireMockUtility: ApplicationContextInitializer<ConfigurableApplicationCont
     }
     companion object {
         fun stubResponse(url: String, responseBody: String, wireMockServer: WireMockServer) {
+            println("url: ${url} is being mocked")
             val urlSplitBySlash = url.split("/").toTypedArray()
             val formattedUrl = "/" + urlSplitBySlash.copyOfRange(3,urlSplitBySlash.size).joinToString("/")
              // this will change http://localhost:PORT/footballAPI/fixtures?id=${id} to just /fixtures/fixtures?id=${id}

@@ -15,4 +15,10 @@ interface PlayerSeasonRepository : MongoRepository<PlayerSeason,String>{
 
     @Query(value = "{\$or:[{'teamSeason.id' : ?0},{'teamSeason.id' : ?1}]}")
     fun findAllPlayersFromOneGame(homeTeamSeasonId: String, awayTeamSeasonId: String) : List<PlayerSeason> 
+
+    @Query(value = "{'teamSeason.league.id' : ?0, 'teamSeason.season' : ?1 }")
+    fun findAllPlayerSeasonsByLeagueAndSeason(leagueId: String, season: Int) : List<PlayerSeason>
+
+    @Query(value = "{'teamSeason.league.id' : {\$in : ?0}, 'teamSeason.season' : ?1 }")
+    fun findAllPlayerSeasonsByLeaguesAndSeason(leagueIds: List<String>, season: Int) : List<PlayerSeason>
 }

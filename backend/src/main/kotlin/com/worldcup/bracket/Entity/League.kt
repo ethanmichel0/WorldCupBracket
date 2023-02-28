@@ -14,10 +14,17 @@ data class League(
     val country: String,
     val sport: Sport,
     val playoffs: Boolean,
-    val logo: String
+    val logo: String,
+    val scheduleType: ScheduleType,
+    val lastDateToDraft: Long? = null
 )
 
 enum class Sport {
     Soccer
+}
+
+enum class ScheduleType {
+    AllInSameYear, // this is for leagues like the MLS, or tournaments like World Cup that go beginning of year to end of year
+    ThroughSpringOfNextYear, // this is for leagues like the Premier League that go fall to spring of next year
 }
     

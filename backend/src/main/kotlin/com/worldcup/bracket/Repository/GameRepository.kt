@@ -22,7 +22,4 @@ interface GameRepository : MongoRepository<Game,String>{
     @Query("{'league.id' : ?0, 'home.season': ?1}")
     fun getAllGamesInLeagueForSeason(league: String, season: Int) : List<Game>
 
-    
-    // fun findByGroupOrderByGameNumberAsc(group: String) : List<Game>
-    // // used for knockout stage games
 }

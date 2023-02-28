@@ -49,5 +49,8 @@ class FootballAPIData(private val secretsConfigurationProperties : SecretsConfig
 
     val X_RAPID_API_HOST = "v3.football.api-sports.io"
     val FOOTBALL_API_KEY: String = secretsConfigurationProperties.footballApiKey
-    val STATUS_FINISHED = "Match Finished"
+    val STATUS_FINISHED_SHORT = "FT"
+    val STATUS_POSTPONED_SHORT = "PST"
+    val STATUS_SUSPENDED_SHORT = "SUSP"
+    val STATUS_ABANDONED_SHORT = "ABD"
 }

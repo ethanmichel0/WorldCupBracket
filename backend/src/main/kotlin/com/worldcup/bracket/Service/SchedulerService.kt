@@ -15,21 +15,35 @@ import org.springframework.data.repository.findByIdOrNull
 
 @Service
 class SchedulerService(private val scheduler: TaskScheduler, private val scheduledTaskRepository : ScheduledTaskRepository) {
-    val futures: MutableMap<String, ScheduledFuture<*>> = HashMap()
+    public val futures: MutableMap<String, ScheduledFuture<*>> = HashMap()
 
     // note that task is not added to the db in method so that if we want to add several tasks to scheduler at once
     // we can call this method several times w/o performance issues
     fun addNewTask(task: Runnable, startTime: Instant, repeatEvery: Duration?, type: TaskType, relatedEntity: String): ScheduledTask { // use -1 for no repeat
-        val scheduledTaskFuture = if (repeatEvery != null) scheduler.scheduleAtFixedRate(task, startTime, repeatEvery) else scheduler.schedule(task,startTime)
+        val markTaskAsCompleteRunnable = Runnable {
+            val relevantTask = scheduledTaskRepository.findByRelatedEntity(relatedEntity)[0]
+            relevantTask.complete = true
+            scheduledTaskRepository.save(relevantTask)
+        }
+
+        val doTaskAndMarkAsCompleteRunnable = Runnable {
+            println("RUNNING ONE TIME TASK")
+            task.run()
+            markTaskAsCompleteRunnable.run()
+        }
+
+        // if task is only run once (repeatEvery is not provided) mark task as complete. If it repeats, will need to instead use removeTaskFromScheduler since taskScheduler doesn't
+        // provide way to specify when task will stop repeating
+        val scheduledTaskFuture = if (repeatEvery != null) scheduler.scheduleAtFixedRate(doTaskAndMarkAsCompleteRunnable, startTime, repeatEvery) else scheduler.schedule(task,startTime)
 
         val scheduledTask = ScheduledTask(
-            repeat = -1,
-            startTime = 1,
+            repeat = repeatEvery,
+            startTime = startTime.getEpochSecond(),
             type = type,
             relatedEntity = relatedEntity
         )
 
-        futures[scheduledTask.toString()] = scheduledTaskFuture
+        futures[scheduledTask.id.toString()] = scheduledTaskFuture
         return scheduledTask
     }
 
@@ -45,14 +59,19 @@ class SchedulerService(private val scheduler: TaskScheduler, private val schedul
         throw Exception("Scheduled task to be removed with id: ${id} not found")
     }
 
-    // note that task is not saved to db in method so that if we want to mark several tasks at complete at once
-    // we can call this method several times w/o performance issues
+    // by default, repeated tasks repeat forever, so this will allow us to cancel. (for example at end of season we can stop checking for
+    // new games/games being rescheduled)
     fun markTaskAsComplete(id: String) : ScheduledTask {
         futures[id]?.let {
             val relevantTaskDB = scheduledTaskRepository.findByIdOrNull(id)!!
             relevantTaskDB.complete = true
+            futures.remove(id)
             return relevantTaskDB
         }
         throw Exception("Scheduled task to be marked as complete with id: ${id} not found")
     }
+
+
 }
+
+// TODO figure out better system for removing scheduled tasks

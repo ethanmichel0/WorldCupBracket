@@ -11,6 +11,7 @@ import com.worldcup.bracket.DTO.LeagueResponse
 import com.worldcup.bracket.DTO.NewLeagueOptions
 import com.worldcup.bracket.DTO.StandingsResponse
 import com.worldcup.bracket.DTO.PlayersAPIResponseWrapper
+import com.worldcup.bracket.DTO.SeasonsNested
 
 import com.worldcup.bracket.Repository.LeagueRepository
 import com.worldcup.bracket.Repository.TeamSeasonRepository
@@ -20,6 +21,7 @@ import com.worldcup.bracket.Repository.PlayerSeasonRepository
 import com.worldcup.bracket.Repository.ScheduledTaskRepository
 
 import com.worldcup.bracket.Entity.League
+import com.worldcup.bracket.Entity.ScheduleType
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.TeamSeason
 import com.worldcup.bracket.Entity.Player
@@ -38,6 +40,7 @@ import kotlinx.coroutines.*
 
 import java.time.Duration
 import java.util.Calendar
+import java.util.Date
 import java.util.GregorianCalendar
 
 @Service
@@ -66,8 +69,8 @@ class LeagueService(
 
         var firstTimeAddingTeamThisSeason = false // this distinguishes between player transfers mid season and the first time getting rosters at beginning of season
         
-        val seasons = responseWrapperLeague.response[0].seasons
-        val latestSeason = seasons[seasons.lastIndex].year
+        val latestSeason = getLatestSeasonGivenLeagueResponseFromAPI(responseWrapperLeague.response[0].seasons)
+        
         if (relevantLeagueFromDB == null) {
             relevantLeagueFromDB = League(
                     name=responseWrapperLeague.response[0].league.name,
@@ -75,7 +78,8 @@ class LeagueService(
                     logo=responseWrapperLeague.response[0].league.logo,
                     country=responseWrapperLeague.response[0].country.name,
                     sport=newLeagueOptions.sport,
-                    playoffs=newLeagueOptions.playoffs
+                    playoffs=newLeagueOptions.playoffs,
+                    scheduleType=newLeagueOptions.scheduleType
             )
             leagueRepository.save(
                 relevantLeagueFromDB
@@ -139,28 +143,31 @@ class LeagueService(
 
         playerRepository.saveAll(allPlayers)
         playerSeasonRepository.saveAll(allPlayerSeasons)
+        
 
-        val date = GregorianCalendar();
-        // reset hour, minutes, seconds and millis
-        date.set(Calendar.HOUR_OF_DAY, 0);
-        date.set(Calendar.MINUTE, 0);
-        date.set(Calendar.SECOND, 0);
-        date.set(Calendar.MILLISECOND, 0);
+        // this code starts a daily check for all upcoming gamem times in case there are any future delays in the season
+        // due to unexpected events
+        
+        if (firstTimeAddingTeamThisSeason) {
+            val date = GregorianCalendar();
+            date.set(Calendar.HOUR_OF_DAY, 0);
+            date.set(Calendar.MINUTE, 0);
+            date.set(Calendar.SECOND, 0);
+            date.set(Calendar.MILLISECOND, 0);
+            date.add(Calendar.DAY_OF_MONTH, 1);
 
-        // next day
-        date.add(Calendar.DAY_OF_MONTH, 1);
+            val scheduleTask = schedulerService.addNewTask(
+                task = Runnable {
+                    gameService.setLeagueGames(leagueId,latestSeason)
+                    },
+                startTime = date.toInstant(),
+                repeatEvery = Duration.ofDays(1),
+                type = TaskType.CheckGameSchedule,
+                relatedEntity = leagueId
+            )
 
-        val scheduleTask = schedulerService.addNewTask(
-            task = Runnable {
-                gameService.setLeagueGames(leagueId,latestSeason)
-                },
-            startTime = date.toInstant(),
-            repeatEvery = Duration.ofDays(1),
-            type = TaskType.CheckGameSchedule,
-            relatedEntity = leagueId
-        )
-
-        scheduledTaskRepository.save(scheduleTask)
+            scheduledTaskRepository.save(scheduleTask)
+        }
     }
 
 
@@ -208,5 +215,9 @@ class LeagueService(
                 }
         }
         return Pair(playersToAddToDB,playersSeasonsToAddToDB)
+    }
+
+    public fun getLatestSeasonGivenLeagueResponseFromAPI(seasons: List<SeasonsNested>) : Int{
+        return seasons[seasons.lastIndex].year
     }
 }

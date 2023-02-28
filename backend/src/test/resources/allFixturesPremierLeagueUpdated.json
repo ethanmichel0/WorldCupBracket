@@ -14,87 +14,20 @@
     "response" : [
         {
             "fixture": {
-                "id": 868036,
-                "referee": "Salisbury Michael, England",
-                "timezone": "UTC",
-                "date": "2022-10-08T14:00:00+00:00",
-                "timestamp": 1665237600,
-                "periods": {
-                    "first": 1665237600,
-                    "second": 1665241200
-                },
-                "venue": {
-                    "id": 504,
-                    "name": "Vitality Stadium",
-                    "city": "Bournemouth, Dorset"
-                },
-                "status": {
-                    "long": "Match Finished",
-                    "short": "FT",
-                    "elapsed": 90
-                }
-            },
-            "league": {
-                "id": 39,
-                "name": "Premier League",
-                "country": "England",
-                "logo": "https://media-3.api-sports.io/football/leagues/39.png",
-                "flag": "https://media.api-sports.io/flags/gb.svg",
-                "season": 2022,
-                "round": "Regular Season - 10"
-            },
-            "teams": {
-                "home": {
-                    "id": 35,
-                    "name": "Bournemouth",
-                    "logo": "https://media-3.api-sports.io/football/teams/35.png",
-                    "winner": true
-                },
-                "away": {
-                    "id": 46,
-                    "name": "Leicester",
-                    "logo": "https://media-3.api-sports.io/football/teams/46.png",
-                    "winner": false
-                }
-            },
-            "goals": {
-                "home": 2,
-                "away": 1
-            },
-            "score": {
-                "halftime": {
-                    "home": 0,
-                    "away": 1
-                },
-                "fulltime": {
-                    "home": 2,
-                    "away": 1
-                },
-                "extratime": {
-                    "home": null,
-                    "away": null
-                },
-                "penalty": {
-                    "home": null,
-                    "away": null
-                }
-            }
-        },
-        {
-            "fixture": {
                 "id": 868240,
                 "referee": null,
                 "timezone": "UTC",
-                "date": "2023-04-08T14:00:00+00:00",
-                "timestamp": 1680962400,
+                "date": "2086-12-17T14:00:00+00:00",
+                "comment": "NOTE THAT THIS DATE WAS MODIFIED FROM ORIGINAL DATE -- VERY FAR IN THE FUTURE SO THAT IN TESTING OUR SCHEDULED SERVICE DOESN'T GET THE RESULT",
+                "timestamp": 3690962411,
                 "periods": {
                     "first": null,
                     "second": null
                 },
                 "venue": {
                     "id": 547,
-                    "name": "King Power Stadium",
-                    "city": "Leicester, Leicestershire"
+                    "name": "Bournemouth stadium",
+                    "city": "LOL I FORGET"
                 },
                 "status": {
                     "long": "Postponed",
@@ -113,15 +46,15 @@
             },
             "teams": {
                 "home": {
-                    "id": 46,
-                    "name": "Leicester",
-                    "logo": "https://media.api-sports.io/football/teams/46.png",
-                    "winner": null
-                },
-                "away": {
                     "id": 35,
                     "name": "Bournemouth",
                     "logo": "https://media-3.api-sports.io/football/teams/35.png",
+                    "winner": null
+                },
+                "away": {
+                    "id": 46,
+                    "name": "Leicester",
+                    "logo": "https://media.api-sports.io/football/teams/46.png",
                     "winner": null
                 }
             },
@@ -153,16 +86,17 @@
                 "id": 86824099,
                 "referee": null,
                 "timezone": "UTC",
-                "date": "2023-05-08T14:00:00+00:00",
-                "timestamp": 1682962400,
+                "date": "2087-04-11T14:00:00+00:00",
+                "comment": "NOTE THAT THIS DATE WAS MODIFIED FROM ORIGINAL DATE -- VERY FAR IN THE FUTURE SO THAT IN TESTING OUR SCHEDULED SERVICE DOESN'T GET THE RESULT",
+                "timestamp": 3700962411,
                 "periods": {
                     "first": null,
                     "second": null
                 },
                 "venue": {
                     "id": 547,
-                    "name": "King Power Stadium",
-                    "city": "Leicester, Leicestershire"
+                    "name": "Bournemouth stadium",
+                    "city": "LOL I FORGET"
                 },
                 "status": {
                     "long": "Not Started",
@@ -181,15 +115,15 @@
             },
             "teams": {
                 "home": {
-                    "id": 46,
-                    "name": "Leicester",
-                    "logo": "https://media.api-sports.io/football/teams/46.png",
-                    "winner": null
-                },
-                "away": {
                     "id": 35,
                     "name": "Bournemouth",
                     "logo": "https://media-3.api-sports.io/football/teams/35.png",
+                    "winner": null
+                },
+                "away": {
+                    "id": 46,
+                    "name": "Leicester",
+                    "logo": "https://media.api-sports.io/football/teams/46.png",
                     "winner": null
                 }
             },

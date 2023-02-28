@@ -52,8 +52,22 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
     }
 
     @PutMapping("/api/draftgroups/{draftGroupId}/draftTime")
-    fun setDraftTime(@PathVariable draftGroupId : String, principal: Principal, @RequestBody body: SetDraftTime) {
-        
+    fun setDraftTime(@PathVariable draftGroupId : String, principal: Principal, @RequestBody body: SetDraftTime) : ResponseEntity<String> {
+        try {
+            draftGroupService.scheduleDraftGroup(draftGroupId,body,principal)
+            return ResponseEntity.status(HttpStatus.OK).body("")
+        } catch (e: Exception) {
+            if (e.message == DraftGroupService.GROUP_DNE)
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.message)
+            if (e.message == DraftGroupService.NOT_PERMITTED)
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
+            if (e.message == DraftGroupService.NOT_ENOUGH_MEMBERS)
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
+            if (e.message == DraftGroupService.TIME_NOT_VALID)
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
+        }
     }
 
     @PostMapping("/api/draftgroups/join")
@@ -99,9 +113,13 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    @MessageMapping("/hello")
+    @MessageMapping("/api/draftgroups/{draftGroupId}/draftplayer/{playerId}")
     @SendTo("/topic/draft/{draftGroup}")
-    fun greeting(message : String) : String {
-        return "aefssdf"
+    fun greeting(@PathVariable draftGroupId: String, @PathVariable playerId: String, principal: Principal) : String {
+        try {
+            return draftGroupService.draftPlayerForUser(draftGroupId,playerId,principal)
+        } catch (e: Exception) {
+            return e.message!!
+        }
     }
 }

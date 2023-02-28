@@ -1,3 +1,5 @@
+package com.worldcup.bracket.Configuration
+
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -14,7 +16,7 @@ class WebSocketConfig : WebSocketMessageBrokerConfigurer {
   }
 
   override public fun registerStompEndpoints(registry : StompEndpointRegistry) {
-    registry.addEndpoint("/websocket-connect-point").withSockJS();
+    registry.addEndpoint("/websocket-draft-room").withSockJS();
   }
 
 }
