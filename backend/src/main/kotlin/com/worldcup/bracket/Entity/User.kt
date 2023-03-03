@@ -19,6 +19,7 @@ data class User(
     val id : ObjectId = ObjectId.get()) {
         override fun equals(other: Any?): Boolean =
             other is User && other.name == name && other.email == email
+    var admin : Boolean = false
     }
 
 enum class AuthService {

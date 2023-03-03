@@ -152,7 +152,7 @@ class LeagueServiceTests {
         assertEquals(1,ouattara.size,"Ouattara arrived at Bournemouth during transfer window")
 
         val dennis = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"151756") // left during transfer window
-        assertEquals(false,dennis[0].current,"Dennis left Bournemouth during transfer window")
+        assertEquals(true,dennis[0].playerLeftClubDuringSeason,"Dennis left Bournemouth during transfer window")
     }
 
     @Test

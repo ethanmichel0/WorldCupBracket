@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController
 import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Repository.PlayerRepository
+import com.worldcup.bracket.Repository.LeagueRepository
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.DTO.OverrideGroupSettings
 import com.worldcup.bracket.DTO.TeamWithExtraInfo
@@ -26,18 +27,20 @@ class TeamController(
     private val teamRepository: TeamRepository, 
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
+    private val leagueRepository: LeagueRepository,
     private val teamService: TeamService) {
+
         /* 
-    @GetMapping("/api/teams/{teamId}")
-    fun getTeam(@PathVariable teamId: String) : ResponseEntity<TeamWithExtraInfo>{
+    @GetMapping("/api/leagues/{leagueId}/teams/{teamId}")
+    fun getTeam(@PathVariable teamId: String) : ResponseEntity<TeamWithExtraInfo> {
         val team = teamRepository.findById(teamId).unwrap()
+
         if (team == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
         return ResponseEntity.status(HttpStatus.OK).body(TeamWithExtraInfo(
             team,
             gameRepository.getAllGamesFromTeamUpcoming(teamId, System.currentTimeMillis()/1000),
             gameRepository.getAllGamesFromTeamPast(teamId, System.currentTimeMillis()/1000),
-            playerRepository.findAllPlayersOnTeam(teamId)
-        ))
+            playerSeasonRepository.findAllPlayerSeasonsForTeamCurrentlyActive(teamId: String))
     } */
 
     @GetMapping("/api/standings")

@@ -49,5 +49,7 @@ data class TeamSeason(
         get() = goalsAgainstGroup + goalsAgainstKnockout
     val goalsDifference: Int
         get() = goalsDifferenceGroup + goalsDifferenceKnockout
-    var ties: Int = 0 // only can have ties in group stage
+    var ties: Int = 0
+
+    var current = true
 }

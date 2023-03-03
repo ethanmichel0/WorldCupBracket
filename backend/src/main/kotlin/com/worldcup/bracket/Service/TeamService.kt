@@ -11,54 +11,54 @@ import org.springframework.stereotype.Service
 
 @Service
 class TeamService(private val teamRepository : TeamRepository, 
-        private val gameRepository: GameRepository,
-        private val secretsConfigurationProperties: SecretsConfigurationProperties){
-    // fun sortTeamsInGroup(groupLetter : String) {
-    //     val group : MutableList<Team> = teamRepository.findByGroup(groupLetter).toMutableList()
-    //     val pointsComparison = compareByDescending<Team>{it.pointsGroup}
-    //         .thenByDescending{it.goalsDifference}
-    //         .thenByDescending{it.goalsFor}
-    //     group.sortWith(pointsComparison)
-    //     group[0].positionGroup = 1
-    //     group[1].positionGroup = 2
-    //     group[2].positionGroup = 3
-    //     group[3].positionGroup = 4
+    private val gameRepository: GameRepository,
+    private val secretsConfigurationProperties: SecretsConfigurationProperties) {
 
-    //     // there are more tie breakers but honestly easier to specify which teams
-    //     // should go through manually using below function
+    /*
+    public fun getCurrentSquadOfTeam() {
+        val playersRequest = BuildNewRequest(footballAPIData.getAllPlayersOnTeamEndpoint(teamSeason.team.id),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+        val playersResponse = httpClient.send(playersRequest, HttpResponse.BodyHandlers.ofString());
+        val playersResponseWrapper : PlayersAPIResponseWrapper = Gson().fromJson(playersResponse.body(), PlayersAPIResponseWrapper::class.java)
+        
+        val playersToAddToDB = mutableListOf<Player>()
+        val playersSeasonsToAddToDB = mutableListOf<PlayerSeason>()
 
-    //     teamRepository.saveAll(listOf(group[0],group[1],group[2],group[3]))
-    // }
+        for (player in playersResponseWrapper.response[0].players) {
+            // check if player already in database
+            val relevantPlayerToAddToDB = Player(
+                name = player.name,
+                id = player.id
+            )
 
-    // // In case teams are still tied after trying to figure out which teams should advance
-    // fun overrideGroupOrdering(overrideGroupSettings : OverrideGroupSettings) : List<Team> {
-    //     if (overrideGroupSettings.overridePass != secretsConfigurationProperties.overridePw) throw IllegalArgumentException("You need special permission to set tiebreakers")
+            val relevantPlayerSeason = PlayerSeason(
+                player = relevantPlayerToAddToDB,
+                teamSeason = teamSeason,
+                position = player.position,
+                number = player.number
+            )
 
-    //     if (! (teamRepository.existsByName(overrideGroupSettings.first) && teamRepository.existsByName(overrideGroupSettings.second) 
-    //             && teamRepository.existsByName(overrideGroupSettings.third) && teamRepository.existsByName(overrideGroupSettings.fourth))) {
-    //         throw IllegalArgumentException("Teams Provided Do Not Match")
-    //     }
+            if (playerRepository.findByIdOrNull(player.id)==null) {
+                playersToAddToDB.add(relevantPlayerToAddToDB)
+            }
 
-    //     val team1 : Team = teamRepository.findByName(overrideGroupSettings.first)[0]
-    //     val team2 : Team = teamRepository.findByName(overrideGroupSettings.second)[0]
-    //     val team3 : Team = teamRepository.findByName(overrideGroupSettings.third)[0]
-    //     val team4 : Team = teamRepository.findByName(overrideGroupSettings.fourth)[0]
+            // add all players for beginning of season and all new transferred players after transfer breaks during the season
+            if (firstTimeAddingTeamThisSeason || playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(teamSeason.season,player.id).size == 0) {
+                playersSeasonsToAddToDB.add(relevantPlayerSeason)
+            }
+        }
 
-    //     val relevantGroup : List<Team> = teamRepository.findByGroup(overrideGroupSettings.groupLetter)
-    //     if (! (relevantGroup.contains(team1)
-    //         && relevantGroup.contains(team2)
-    //         && relevantGroup.contains(team3)
-    //         && relevantGroup.contains(team4))) {
-    //             throw IllegalArgumentException("Teams Provided Do Not Match")
-    //     }
-
-    //     team1.positionGroup = 1
-    //     team2.positionGroup = 2
-    //     team3.positionGroup = 3
-    //     team4.positionGroup = 4
-
-    //     teamRepository.saveAll(listOf(team1,team2, team3, team4))
-
-    //     return listOf(team1,team2,team3,team4)
-    // }
+        // change "current" property to false on all players that transferred out of club during transfer windows if this is during transfer window
+        // this can be done by checking all player ids of current squad from api and comparing against those in data base to confirm players are still playing for club
+        
+        if (!firstTimeAddingTeamThisSeason) {
+            val allCurrentPlayerIds : List<String> = playersResponseWrapper.response[0].players.map{it.id}
+            playerSeasonRepository.findAllPlayerSeasonsByTeamSeason(teamSeason.id.toString()).filter{! allCurrentPlayerIds.contains(it.player.id) }.
+                forEach{
+                    it.current = false
+                    playersSeasonsToAddToDB.add(it)
+                }
+        }
+        return Pair(playersToAddToDB,playersSeasonsToAddToDB)
+    }
+    */
 }

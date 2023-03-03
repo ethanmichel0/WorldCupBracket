@@ -45,6 +45,8 @@ class FootballAPIData(private val secretsConfigurationProperties : SecretsConfig
 
     fun getAllPlayersOnTeamEndpoint(team : String) = BASE_API + "players/squads?team=${team}"
 
+    fun getIndividualPlayerForSeasonEndpoint(playerId: String, season: Int) = BASE_API + "player?id=${playerId}&season={season}"
+
     fun getTeamInfoEndpoint(team : String) = BASE_API + "teams?id=${team}"
 
     val X_RAPID_API_HOST = "v3.football.api-sports.io"

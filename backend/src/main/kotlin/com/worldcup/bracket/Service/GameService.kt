@@ -17,10 +17,12 @@ import com.google.gson.GsonBuilder;
 import com.worldcup.bracket.DTO.FixturesAPIResponseWrapper
 import com.worldcup.bracket.DTO.AllEvents
 import com.worldcup.bracket.DTO.PlayersNested
+import com.worldcup.bracket.DTO.PlayerInfoSinglePlayerRequest
 
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Repository.TeamSeasonRepository
 import com.worldcup.bracket.Repository.LeagueRepository
+import com.worldcup.bracket.Repository.PlayerRepository
 import com.worldcup.bracket.Repository.PlayerPerformanceSoccerRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
 import com.worldcup.bracket.Repository.ScheduledTaskRepository
@@ -46,6 +48,7 @@ class GameService(private val gameRepository : GameRepository,
     private val leagueRepository : LeagueRepository,
     private val playerPerformanceSoccerRepository : PlayerPerformanceSoccerRepository,
     private val playerSeasonRepository : PlayerSeasonRepository,
+    private val playerRepository : PlayerRepository,
     private val scheduledTaskRepository : ScheduledTaskRepository,
     private val schedulerService : SchedulerService,
     private val footballAPIData : FootballAPIData) {
@@ -225,11 +228,44 @@ class GameService(private val gameRepository : GameRepository,
         
 
         allPlayersBothTeams.forEach{playerFromAPI ->
-            val playerFromRepo = allPlayerSeasonsSameGameFromRepo.filter{playerFromRepo -> playerFromRepo.player.id == playerFromAPI.player.id}[0]
+            val matchingPlayerFromRepo = allPlayerSeasonsSameGameFromRepo.filter{playerFromRepo -> playerFromRepo.player.id == playerFromAPI.player.id}.toMutableList()
+            if (matchingPlayerFromRepo.size==0) {
+                // this indicates that we are retrieving a game earlier this season with players listed who no longer play for the club and hence are 
+                // not in the database. This should only happen if we get current sqauds from a league partway through the season when some of the original players have left the club
+                // and thus never had PlayerSeason objects created. NOTE that this condition will only enter if we have added a new league partway through it's season
+
+                val playerInfoRequest = BuildNewRequest(footballAPIData.getIndividualPlayerForSeasonEndpoint(playerFromAPI.player.id,relatedGame.home.season),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+                val playerInfoResponse = httpClient.send(playerInfoRequest, HttpResponse.BodyHandlers.ofString());
+                val playerInfoWrapper : PlayerInfoSinglePlayerRequest = Gson().fromJson(playerInfoResponse.body(), PlayerInfoSinglePlayerRequest::class.java)
+                
+                val playerWhoLeftClub = if (playerRepository.findByIdOrNull(playerFromAPI.player.id) != null) playerRepository.findByIdOrNull(playerFromAPI.player.id)!! else
+                Player(
+                    id = playerFromAPI.player.id,
+                    name = playerFromAPI.player.name
+                )
+
+                // if player is in database (they started season in same league but @ different club (for example Chelsea to Arsenal) than they will already be in database. 
+                // however if they joined the league from a team in a different league, (example MLS to Premier League) they may not be in database if the other league is not accounted for)
+
+                val playerSeasonNoLongerPlaysForClub = PlayerSeason(
+                    player = playerWhoLeftClub,
+                    teamSeason = if (relatedGame.home.team.id == playerInfoWrapper.response[0].statistics[1].team.id) relatedGame.home else relatedGame.away,
+                    position = playerInfoWrapper.response[0].statistics[1].games.position,
+                    number = playerFromAPI.statistics[0].games.number!!,
+                    playerLeftClubDuringSeason = true // this condition will only enter (no player found in database) if we added a league midseason and got an old game with a player who left the club
+                    // before we added the league
+                )
+
+                matchingPlayerFromRepo.add(playerSeasonNoLongerPlaysForClub)
+                playerRepository.save(playerWhoLeftClub)
+                playerSeasonRepository.save(playerSeasonNoLongerPlaysForClub)
+
+                logger.info("New player : ${playerWhoLeftClub} added to database since league: ${relatedGame.home.league} was added midseason after player already left club")
+            }
             if (firstTimeCreatingPerformances) {
                 playerPerformances.add(
                     PlayerPerformanceSoccer(
-                        playerSeason=playerFromRepo,
+                        playerSeason=matchingPlayerFromRepo[0],
                         game = relatedGame,
                         minutes = playerFromAPI.statistics[0].games.minutes,
                         started = ! (playerFromAPI.statistics[0].games.substitute),
@@ -238,7 +274,7 @@ class GameService(private val gameRepository : GameRepository,
                         yellowCards = playerFromAPI.statistics[0].cards.yellow,
                         redCards = playerFromAPI.statistics[0].cards.red,
                         saves = playerFromAPI.statistics[0].goals.saves,
-                        cleanSheet = if (playerFromRepo.teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0,
+                        cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0,
                         penaltySaves = playerFromAPI.statistics[0].penalty.saved,
                         penaltyMisses = playerFromAPI.statistics[0].penalty.missed
                     )
@@ -251,7 +287,7 @@ class GameService(private val gameRepository : GameRepository,
                 relevantPlayerPerformance.yellowCards = playerFromAPI.statistics[0].cards.yellow
                 relevantPlayerPerformance.redCards = playerFromAPI.statistics[0].cards.red
                 relevantPlayerPerformance.saves = playerFromAPI.statistics[0].goals.saves
-                relevantPlayerPerformance.cleanSheet = if (playerFromRepo.teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0
+                relevantPlayerPerformance.cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0
                 relevantPlayerPerformance.penaltySaves = playerFromAPI.statistics[0].penalty.saved
                 relevantPlayerPerformance.penaltyMisses = playerFromAPI.statistics[0].penalty.missed
             }

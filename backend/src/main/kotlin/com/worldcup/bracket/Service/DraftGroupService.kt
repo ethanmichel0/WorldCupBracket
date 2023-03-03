@@ -76,6 +76,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
 
 
     public fun saveNewDraftGroup(body: NewDraftGroup, principal: Principal) {
+        // TODO use username/email as user identifier
         val password = passwordEncoder.encode(body.password)
         val allDraftGroupsSameName = draftGroupRepository.findByName(body.name)
         val owner = userRepository.findByName(principal.getName())[0]
@@ -171,7 +172,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
 
         if (group.draftTime == -1L) { // indicates that this is first time calling this method/setting the draft time
             // randomly shuffle members, but only on first time, that way someone can't call this method multiple times if they are unhappy with ordering
-            group.availablePlayers.addAll(playerSeasonRepository.findAllPlayerSeasonsByLeaguesAndSeason(group.leagues.map{it.id},2022).toMutableList())
+            group.availablePlayers.addAll(playerSeasonRepository.findAllPlayerSeasonsByLeaguesAndSeason(group.leagues.map{it.id},group.season).toMutableList())
             val playerDrafts : MutableList<PlayerDraft> = mutableListOf<PlayerDraft>()
             
             group.members.shuffle()

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import org.springframework.data.mongodb.repository.Query;
 
-interface PlayerSeasonRepository : MongoRepository<PlayerSeason,String>{
+interface PlayerSeasonRepository : MongoRepository<PlayerSeason,String> {
     @Query(value = "{'teamSeason.season' : ?0, 'player.id' : ?1}")
     fun findAllPlayerSeasonsBySeasonAndPlayer(season: Int, player: String) : List<PlayerSeason>
 
@@ -21,4 +21,7 @@ interface PlayerSeasonRepository : MongoRepository<PlayerSeason,String>{
 
     @Query(value = "{'teamSeason.league.id' : {\$in : ?0}, 'teamSeason.season' : ?1 }")
     fun findAllPlayerSeasonsByLeaguesAndSeason(leagueIds: List<String>, season: Int) : List<PlayerSeason>
+
+    @Query(value = "{'teamSeason.current' : true, 'teamSeason.team.id' : ?0}")
+    fun findAllPlayerSeasonsForTeamCurrentlyActive(teamId: String) : List<PlayerSeason>
 }

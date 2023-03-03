@@ -11,10 +11,10 @@ data class PlayerSeason(
     val teamSeason: TeamSeason,
     val position: Position,
     val number: Int,
+    var playerLeftClubDuringSeason : Boolean = false,
     @Id 
-    val id: ObjectId = ObjectId.get(),
+    val id: ObjectId = ObjectId.get()
 ) {
-    var current = true
     var goals : Int = 0
     var assists : Int = 0
     var totalPoints: Int = 0

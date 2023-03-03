@@ -19,6 +19,7 @@ import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.PlayerRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
 import com.worldcup.bracket.Repository.ScheduledTaskRepository
+import com.worldcup.bracket.Repository.UserRepository
 
 import com.worldcup.bracket.Entity.League
 import com.worldcup.bracket.Entity.ScheduleType
@@ -38,6 +39,8 @@ import com.google.gson.GsonBuilder;
 
 import kotlinx.coroutines.*
 
+import java.security.Principal
+
 import java.time.Duration
 import java.util.Calendar
 import java.util.Date
@@ -53,10 +56,15 @@ class LeagueService(
     private val footballAPIData : FootballAPIData,
     private val gameService : GameService,
     private val schedulerService : SchedulerService,
-    private val scheduledTaskRepository : ScheduledTaskRepository) {
+    private val scheduledTaskRepository : ScheduledTaskRepository,
+    private val userRepository: UserRepository) {
     
     val httpClient = HttpClient.newHttpClient()
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
+
+    companion object {
+        private val NOT_PERMITTED_TO_MARK_SEASON_AS_OVER = "You must be an admin to mark a season as over"
+    }
 
 
     public fun addNewSeasonForLeague(leagueId: String, newLeagueOptions: NewLeagueOptions) {
@@ -70,7 +78,7 @@ class LeagueService(
         var firstTimeAddingTeamThisSeason = false // this distinguishes between player transfers mid season and the first time getting rosters at beginning of season
         
         val latestSeason = getLatestSeasonGivenLeagueResponseFromAPI(responseWrapperLeague.response[0].seasons)
-        
+
         if (relevantLeagueFromDB == null) {
             relevantLeagueFromDB = League(
                     name=responseWrapperLeague.response[0].league.name,
@@ -210,7 +218,7 @@ class LeagueService(
             val allCurrentPlayerIds : List<String> = playersResponseWrapper.response[0].players.map{it.id}
             playerSeasonRepository.findAllPlayerSeasonsByTeamSeason(teamSeason.id.toString()).filter{! allCurrentPlayerIds.contains(it.player.id) }.
                 forEach{
-                    it.current = false
+                    it.playerLeftClubDuringSeason = true
                     playersSeasonsToAddToDB.add(it)
                 }
         }
@@ -219,5 +227,17 @@ class LeagueService(
 
     public fun getLatestSeasonGivenLeagueResponseFromAPI(seasons: List<SeasonsNested>) : Int{
         return seasons[seasons.lastIndex].year
+    }
+
+    public fun markSeasonAsOverforLeague(leagueId: String, season: Int, principal: Principal) {
+        if (! userRepository.findByName(principal.getName())[0].admin) {
+            throw Exception(NOT_PERMITTED_TO_MARK_SEASON_AS_OVER)
+        }
+        val teamSeasonsForLeague = mutableListOf<TeamSeason>()
+        teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(season,leagueId).forEach{
+            ts -> ts.current = false
+            teamSeasonsForLeague.add(ts)
+        }
+        teamSeasonRepository.saveAll(teamSeasonsForLeague)
     }
 }

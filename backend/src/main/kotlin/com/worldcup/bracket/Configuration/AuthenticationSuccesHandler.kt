@@ -41,7 +41,7 @@ public class AuthenticationSuccessHandler : SavedRequestAwareAuthenticationSucce
         //if redirected from some specific url, need to remove the cachedRequest to force use defaultTargetUrl
         val userDetails : DefaultOidcUser = authentication.getPrincipal() as DefaultOidcUser
         response.setHeader("Authorization","Bearer " + userDetails.getIdToken().getTokenValue())
-        if (userRepository.findByName(userDetails.getName()).size == 0) {
+        if (userRepository.findByEmail(userDetails.getEmail()).size == 0) {
             userRepository.save(User(userDetails.getName(), userDetails.getEmail(), AuthService.GOOGLE))
         }
         redirectStrategy.sendRedirect(request, response, "/api/testAuth");
