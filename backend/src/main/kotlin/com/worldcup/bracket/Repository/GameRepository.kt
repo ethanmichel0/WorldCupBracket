@@ -16,6 +16,9 @@ interface GameRepository : MongoRepository<Game,String>{
     @Query("{\$and :[{\$or:[{'home.id': ?0 }, { 'away.id' : ?0}]},{'date': {\$lt: ?1}}]}")
     fun getAllGamesFromTeamPast(teamSeason: String, date: Long) : List<Game>
 
+    @Query("{\$and :[{\$or:[{'home.id': ?0 }, { 'away.id' : ?0}]},{'date': {\$lte: ?1, \$gte: ?2}}]}")
+    fun getAllGamesForTeamBetweenTwoDates(teamSeason: String, begin: Long, end: Long) : List<Game>
+
     @Query("{\$or :[{\$and:[{'home.team.name': ?0 }, { 'away.team.name' : ?1}]},{\$and:[{'home.team.name': ?1 }, { 'away.team.name' : ?0}]}]}")
     fun getAllGamesBetweenTwoTeams(team1Name: String, team2Name: String) : List<Game>
 

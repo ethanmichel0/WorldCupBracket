@@ -15,10 +15,11 @@ import org.springframework.test.context.ContextConfiguration
 
 import com.worldcup.bracket.DTO.NewLeagueOptions
 import com.worldcup.bracket.Entity.Team
+import com.worldcup.bracket.Entity.TeamSeason
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Sport
 import com.worldcup.bracket.Entity.ScheduleType
-import com.worldcup.bracket.FootballAPIData
+import com.worldcup.bracket.GetFootballDataEndpoints
 import com.worldcup.bracket.WireMockUtility
 import com.worldcup.bracket.Repository.PlayerRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
@@ -47,7 +48,7 @@ import java.util.concurrent.TimeUnit
 class LeagueServiceTests {
 
     @Autowired 
-    private lateinit var footballAPIData: FootballAPIData
+    private lateinit var footballAPIData: GetFootballDataEndpoints
 
     @Autowired
     private lateinit var wireMockServer: WireMockServer
@@ -114,6 +115,17 @@ class LeagueServiceTests {
         assertEquals(0,allPlayersInLeague2022.size,"should be 0 players in league")
         
         leagueService.addNewSeasonForLeague("39",NewLeagueOptions(Sport.Soccer,false,ScheduleType.ThroughSpringOfNextYear))
+        
+        // manually set WhoScored.com ids for both teams as we will do in production
+        val bournemouth = teamSeasonRepository.findAllCurrentTeamSeasonsByTeam("35")[0]
+        val leicester = teamSeasonRepository.findAllCurrentTeamSeasonsByTeam("46")[0]
+
+        bournemouth.team.teamIdWhoScored="183"
+        leicester.team.teamIdWhoScored="14"
+
+        teamRepository.saveAll(mutableListOf<Team>(bournemouth.team,leicester.team))
+        teamSeasonRepository.saveAll(mutableListOf<TeamSeason>(bournemouth,leicester))
+
 
         val bothTeamSeasons = teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(2022,"39")
         assertEquals(2,bothTeamSeasons.size,"checking if two TeamSeasons in repository for Leicester and Bournmouth 2022")
@@ -179,6 +191,9 @@ class LeagueServiceTests {
         var firstGameId = allGames[0].fixtureId
         assertEquals("868240",firstGameId,"one fixture in season with id: ${868240}")
 
+
+        assertEquals(allGames[0].gameIdWhoScored,"1640765","the corresponding game id on whoscored website is 1640765")
+        
         var allScheduledTasksToGetGameUpdates = scheduledTaskRepository.findByRelatedEntity("868240")
         assertEquals(allScheduledTasksToGetGameUpdates.size,1,"task at beginning of game to receive score updates")
         assertTrue(schedulerService.futures.get(allScheduledTasksToGetGameUpdates[0].id.toString())!= null)

@@ -9,10 +9,13 @@ import java.util.Calendar
 import java.text.SimpleDateFormat
 
 @Component
-class FootballAPIData(private val secretsConfigurationProperties : SecretsConfigurationProperties) {
+class GetFootballDataEndpoints(private val secretsConfigurationProperties : SecretsConfigurationProperties) {
 
     @Value("\${footballAPI.baseAPI}")
     lateinit var BASE_API: String
+
+    @Value("\${footballAPI.whoScoredAPI}")
+    lateinit var WHO_SCORED_API: String
 
     fun getAllFixturesInSeasonEndpoint(league: String, season: Int) = BASE_API + "fixtures?season=${season}&league=${league}"
 
@@ -45,9 +48,9 @@ class FootballAPIData(private val secretsConfigurationProperties : SecretsConfig
 
     fun getAllPlayersOnTeamEndpoint(team : String) = BASE_API + "players/squads?team=${team}"
 
-    fun getIndividualPlayerForSeasonEndpoint(playerId: String, season: Int) = BASE_API + "player?id=${playerId}&season={season}"
-
-    fun getTeamInfoEndpoint(team : String) = BASE_API + "teams?id=${team}"
+    fun getIndividualPlayerForSeasonEndpoint(playerId: String, season: Int) = BASE_API + "player?id=${playerId}&season=${season}"
+    
+    fun getAllFixturesForTeamWhoScored(teamIdWhoScored: String) = WHO_SCORED_API + "teams/${teamIdWhoScored}/fixtures"
 
     val X_RAPID_API_HOST = "v3.football.api-sports.io"
     val FOOTBALL_API_KEY: String = secretsConfigurationProperties.footballApiKey

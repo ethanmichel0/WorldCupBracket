@@ -7,7 +7,7 @@ import org.springframework.data.repository.findByIdOrNull
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import com.worldcup.bracket.FootballAPIData
+import com.worldcup.bracket.GetFootballDataEndpoints
 
 import com.worldcup.bracket.DTO.LeagueResponse
 import com.worldcup.bracket.DTO.NewDraftGroup
@@ -47,7 +47,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
     private val playerSeasonRepository: PlayerSeasonRepository,
     private val scheduledTaskRepository: ScheduledTaskRepository,
     private val leagueRepository: LeagueRepository,
-    private val footballAPIData: FootballAPIData,
+    private val footballAPIData: GetFootballDataEndpoints,
     private val leagueService: LeagueService,
     private val schedulerService: SchedulerService,
     private val simpMessagingTemplate: SimpMessagingTemplate

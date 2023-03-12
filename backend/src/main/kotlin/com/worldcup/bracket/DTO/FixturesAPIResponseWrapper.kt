@@ -6,7 +6,7 @@ data class FixturesAPIResponseWrapper(
 )
 
 data class FixturesWrapper(
-    val fixture : FixtureDTO,
+    val fixture: FixtureDTO,
     val teams: TeamsNested,
     val goals: GoalsNested,
     val score: ScoreNested,
@@ -64,6 +64,11 @@ data class PlayerInfo(
 data class PlayerStatistics(
     val games: GamesForPlayerInfo,
     val goals: GoalsInfo,
+    val passes: PassesInfo,
+    val tackles: TacklesInfo,
+    val duels: DuelsInfo,
+    val dribbles: DribblesInfo,
+    val fouls: FoulsInfo,
     val cards: CardsInfo,
     val penalty: PenaltyInfo
 )
@@ -80,6 +85,34 @@ data class GoalsInfo(
     val conceded: Int?,
     val assists: Int?,
     val saves: Int?
+)
+
+data class PassesInfo(
+    val total: Int?,
+    val key: Int?,
+    val accuracy: Int?
+)
+
+data class TacklesInfo(
+    val total: Int?,
+    val blocks: Int?,
+    val interceptions: Int?
+)
+
+data class DuelsInfo(
+    val total: Int?,
+    val won: Int?
+)
+
+data class DribblesInfo(
+    val attempts: Int?,
+    val success: Int?,
+    val past: Int?
+)
+
+data class FoulsInfo(
+    val drawn: Int?,
+    val committed: Int?
 )
 
 data class CardsInfo(

@@ -27,7 +27,6 @@ class SchedulerService(private val scheduler: TaskScheduler, private val schedul
         }
 
         val doTaskAndMarkAsCompleteRunnable = Runnable {
-            println("RUNNING ONE TIME TASK")
             task.run()
             markTaskAsCompleteRunnable.run()
         }

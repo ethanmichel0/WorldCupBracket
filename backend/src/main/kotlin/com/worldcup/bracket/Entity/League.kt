@@ -17,7 +17,9 @@ data class League(
     val logo: String,
     val scheduleType: ScheduleType,
     val lastDateToDraft: Long? = null
-)
+) {
+    var espnId = null // unfortunately this has to be manually set ESPN names a lot of teams differently and there is no way to correlate them (for example AFC Bournemouth vs Bournemouth)
+}
 
 enum class Sport {
     Soccer

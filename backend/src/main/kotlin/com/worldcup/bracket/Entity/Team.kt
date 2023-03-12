@@ -4,7 +4,7 @@ import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.annotation.Id
 
 @Document(collection="teams")
-class Team (
+data class Team (
     val name: String, 
     val group: String? = null,
     @Id
@@ -14,5 +14,6 @@ class Team (
     override fun equals(other: Any?): Boolean =
         other is Team && other.name == name
     
-    override fun toString(): String = "Team Name:" + name
+    var teamIdWhoScored: String? = null // who scored website will allow us to retrieve more information about games. We will manually set the who scored team
+    // ids for each team in league so that we can get information for games. 
 }

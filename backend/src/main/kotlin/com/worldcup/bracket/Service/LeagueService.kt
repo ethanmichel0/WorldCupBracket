@@ -3,6 +3,9 @@ package com.worldcup.bracket.Service
 import org.springframework.stereotype.Service
 import org.springframework.data.repository.findByIdOrNull
 
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -29,7 +32,7 @@ import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.Entity.PlayerSeason
 import com.worldcup.bracket.Entity.TaskType
 
-import com.worldcup.bracket.FootballAPIData
+import com.worldcup.bracket.GetFootballDataEndpoints
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -53,7 +56,7 @@ class LeagueService(
     private val teamRepository : TeamRepository,
     private val playerRepository : PlayerRepository,
     private val playerSeasonRepository : PlayerSeasonRepository,
-    private val footballAPIData : FootballAPIData,
+    private val footballAPIData : GetFootballDataEndpoints,
     private val gameService : GameService,
     private val schedulerService : SchedulerService,
     private val scheduledTaskRepository : ScheduledTaskRepository,
@@ -99,7 +102,7 @@ class LeagueService(
         if (allRelevantTeamSeasons.size == 0) {
             firstTimeAddingTeamThisSeason = true
             val requestStandings = BuildNewRequest(footballAPIData.getStandingsEndpoint(leagueId,latestSeason),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
-            val responseStandings = httpClient.send(requestStandings, HttpResponse.BodyHandlers.ofString());
+            val responseStandings = httpClient.send(requestStandings, HttpResponse.BodyHandlers.ofString())
             val responseWrapperStandings : StandingsResponse = Gson().fromJson(responseStandings.body(), StandingsResponse::class.java)
 
             val teams = mutableListOf<Team>()
@@ -238,6 +241,8 @@ class LeagueService(
             ts -> ts.current = false
             teamSeasonsForLeague.add(ts)
         }
+        scheduledTaskRepository.save(schedulerService.markTaskAsComplete(leagueId))
+
         teamSeasonRepository.saveAll(teamSeasonsForLeague)
     }
 }

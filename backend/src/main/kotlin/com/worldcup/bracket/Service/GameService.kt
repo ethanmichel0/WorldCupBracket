@@ -29,6 +29,7 @@ import com.worldcup.bracket.Repository.ScheduledTaskRepository
 
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
+import com.worldcup.bracket.Entity.TeamSeason
 import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.Entity.PlayerPerformanceSoccer
 import com.worldcup.bracket.Entity.PlayerSeason
@@ -36,11 +37,11 @@ import com.worldcup.bracket.Entity.TaskType
 import com.worldcup.bracket.Entity.ScheduledTask
 
 import com.worldcup.bracket.Service.BuildNewRequest
-import com.worldcup.bracket.FootballAPIData
+import com.worldcup.bracket.GetFootballDataEndpoints
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
+import org.jsoup.Jsoup
 
 @Service
 class GameService(private val gameRepository : GameRepository,
@@ -51,7 +52,7 @@ class GameService(private val gameRepository : GameRepository,
     private val playerRepository : PlayerRepository,
     private val scheduledTaskRepository : ScheduledTaskRepository,
     private val schedulerService : SchedulerService,
-    private val footballAPIData : FootballAPIData) {
+    private val footballAPIData : GetFootballDataEndpoints) {
 
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
 
@@ -64,12 +65,43 @@ class GameService(private val gameRepository : GameRepository,
 
         if (allFixturesInLeague.size == 0) { // first time setting fixtures for the season, need to get all fixtures including past fixtures
             
+            
+            // we need to use WhoScored for certain stastistics such as errors leading to goal, which unfortunately doesn't have an API. 
+            // this means that for each team we must get it's list of fixtures and associated gameId so that we can map games from api football (and in our database) to 
+            // games on WhoScored.
+            // this function will parse through the html (no api available) from WhoScored and map each game in terms of home and away teams to their match id 
+            // so we can later set the WhoScoredId after getting the game from api football to associate these games
+            
+            val whoScoredMatchIdByHomeTeamAndAwayTeam: MutableMap<Pair<String,String>, String> = HashMap()
+
+            for (team in allTeamsInLeague) {
+                val allFixturesWhoScoredForTeamRequest = BuildNewRequest(footballAPIData.getAllFixturesForTeamWhoScored(team.team.teamIdWhoScored!!),"GET")
+                // note that we are manually setting teamIdWhoScored after adding a league. If we have not completed this step, we will get an exception from the line above.
+
+                val allFixturesWhoScoredForTeamResponse = httpClient.send(allFixturesWhoScoredForTeamRequest, HttpResponse.BodyHandlers.ofString())
+
+                Jsoup.parseBodyFragment(allFixturesWhoScoredForTeamResponse.body()).body().select("div#layout-wrapper > script")
+                    .forEach{
+                        it.data().substringAfter("fixtureMatches: [").split(",[")
+                        .forEach{
+                            val matchDataJavascriptSplitByComma = it.split(",")
+                            // there may be multiple script elements that are children of div#layoutWrapper so need to make sure we are in right one
+                            if (matchDataJavascriptSplitByComma.size >= 9) {
+                                whoScoredMatchIdByHomeTeamAndAwayTeam[Pair(matchDataJavascriptSplitByComma[5].substring(1,matchDataJavascriptSplitByComma[5].lastIndex),matchDataJavascriptSplitByComma[8].substring(1,matchDataJavascriptSplitByComma[8].lastIndex))] = matchDataJavascriptSplitByComma[0]
+                            }
+                        }
+                    }
+            }
+            
             val allFixturesRequest = BuildNewRequest(footballAPIData.getAllFixturesInSeasonEndpoint(leagueId,season),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
             val allFixturesResponse = httpClient.send(allFixturesRequest, HttpResponse.BodyHandlers.ofString());
             val allFixturesResponseWrapper = Gson().fromJson(allFixturesResponse.body(), FixturesAPIResponseWrapper::class.java)
             
             val gamesForSeason = mutableListOf<Game>()
             val allScheduledFixtureRetrievalTasks = mutableListOf<ScheduledTask>()
+            
+            val currentHomeTeam: TeamSeason? = null
+
             for (game in allFixturesResponseWrapper.response) {
                 val relevantHomeTeam = allTeamsInLeague.filter{it.team == game.teams.home}[0]
                 val relevantAwayTeam = allTeamsInLeague.filter{it.team == game.teams.away}[0]
@@ -79,7 +111,8 @@ class GameService(private val gameRepository : GameRepository,
                     knockoutGame=false,
                     date=game.fixture.timestamp,
                     fixtureId=game.fixture.id,
-                    league=relevantLeagueFromDB
+                    league=relevantLeagueFromDB,
+                    gameIdWhoScored=whoScoredMatchIdByHomeTeamAndAwayTeam[Pair(relevantHomeTeam.team.name,relevantAwayTeam.team.name)]
                 ))
 
                 val cal = GregorianCalendar();
@@ -104,8 +137,9 @@ class GameService(private val gameRepository : GameRepository,
             val postponedGames = mutableListOf<Game>()
             val newlyAddedGames = mutableListOf<Game>()
             val allScheduledFixtureRetrievalTasks = mutableListOf<ScheduledTask>()
+
             val allRelatedFixtureIdsPostponedGames = mutableListOf<String>()
-            for (game in allFixturesRestOfSeasonResponseWrapper.response) { // check if any upcoming games have schedule changes, if so update in DB
+            for (game in allFixturesRestOfSeasonResponseWrapper.response.sortedWith(compareBy{it.teams.home.name})) { // check if any upcoming games have schedule changes, if so update in DB
                 val relevantHomeTeam = allTeamsInLeague.filter{it.team == game.teams.home}[0]
                 val relevantAwayTeam = allTeamsInLeague.filter{it.team == game.teams.away}[0]
                 val relevantGame = Game(
@@ -115,6 +149,7 @@ class GameService(private val gameRepository : GameRepository,
                     date=game.fixture.timestamp,
                     fixtureId=game.fixture.id,
                     league=relevantLeagueFromDB)
+
                 if (game.fixture.status.short == footballAPIData.STATUS_POSTPONED_SHORT) {
                     postponedGames.add(relevantGame)
                     allRelatedFixtureIdsPostponedGames.add(game.fixture.id) // for later: delete scheduled tasks from DB
@@ -215,7 +250,6 @@ class GameService(private val gameRepository : GameRepository,
     }
 
     private fun setPlayerStatistics(allPlayersBothTeams: List<PlayersNested>, allEvents: List<AllEvents>, relatedGame: Game) {
-        logger.info("setting stats")
         val homeTeamId = relatedGame.home.id
         val awayTeamId = relatedGame.away.id
         val allPlayerSeasonsSameGameFromRepo = playerSeasonRepository.findAllPlayersFromOneGame(homeTeamId.toString(),awayTeamId.toString())
@@ -271,12 +305,28 @@ class GameService(private val gameRepository : GameRepository,
                         started = ! (playerFromAPI.statistics[0].games.substitute),
                         goals = playerFromAPI.statistics[0].goals.total,
                         assists = playerFromAPI.statistics[0].goals.assists,
+                        saves = playerFromAPI.statistics[0].goals.saves,
+                        totalPasses = playerFromAPI.statistics[0].passes.total,
+                        keyPasses = playerFromAPI.statistics[0].passes.key,
+                        accuratePasses = playerFromAPI.statistics[0].passes.accuracy,
+                        tackles = playerFromAPI.statistics[0].tackles.total,
+                        blocks = playerFromAPI.statistics[0].tackles.blocks,
+                        interceptions = playerFromAPI.statistics[0].tackles.interceptions,
+                        totalDuels = playerFromAPI.statistics[0].duels.total,
+                        duelsWon = playerFromAPI.statistics[0].duels.won,
+                        dribblesAttempted = playerFromAPI.statistics[0].dribbles.attempts,
+                        dribblesSuccesful = playerFromAPI.statistics[0].dribbles.success,
+                        dribblesPast = playerFromAPI.statistics[0].dribbles.past,
+                        foulsDrawn = playerFromAPI.statistics[0].fouls.drawn,
+                        foulsCommitted = playerFromAPI.statistics[0].fouls.committed,
                         yellowCards = playerFromAPI.statistics[0].cards.yellow,
                         redCards = playerFromAPI.statistics[0].cards.red,
-                        saves = playerFromAPI.statistics[0].goals.saves,
+                        penaltiesDrawn = playerFromAPI.statistics[0].penalty.won,
+                        penaltiesCommitted = playerFromAPI.statistics[0].penalty.committed,
+                        penaltiesMissed = playerFromAPI.statistics[0].penalty.missed,
+                        penaltiesSaved = playerFromAPI.statistics[0].penalty.saved,
+                        penaltiesScored = playerFromAPI.statistics[0].penalty.scored,
                         cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0,
-                        penaltySaves = playerFromAPI.statistics[0].penalty.saved,
-                        penaltyMisses = playerFromAPI.statistics[0].penalty.missed
                     )
                 )
             } else {
@@ -284,12 +334,27 @@ class GameService(private val gameRepository : GameRepository,
                 relevantPlayerPerformance.minutes = playerFromAPI.statistics[0].games.minutes
                 relevantPlayerPerformance.goals = playerFromAPI.statistics[0].goals.total
                 relevantPlayerPerformance.assists = playerFromAPI.statistics[0].goals.assists
+                relevantPlayerPerformance.saves = playerFromAPI.statistics[0].goals.saves
+                relevantPlayerPerformance.totalPasses = playerFromAPI.statistics[0].passes.total
+                relevantPlayerPerformance.keyPasses = playerFromAPI.statistics[0].passes.key
+                relevantPlayerPerformance.accuratePasses = playerFromAPI.statistics[0].passes.accuracy
+                relevantPlayerPerformance.tackles = playerFromAPI.statistics[0].tackles.total
+                relevantPlayerPerformance.blocks = playerFromAPI.statistics[0].tackles.blocks
+                relevantPlayerPerformance.interceptions = playerFromAPI.statistics[0].tackles.interceptions
+                relevantPlayerPerformance.totalDuels = playerFromAPI.statistics[0].duels.total
+                relevantPlayerPerformance.duelsWon = playerFromAPI.statistics[0].duels.won
+                relevantPlayerPerformance.dribblesAttempted = playerFromAPI.statistics[0].dribbles.attempts
+                relevantPlayerPerformance.dribblesSuccesful = playerFromAPI.statistics[0].dribbles.success
+                relevantPlayerPerformance.dribblesPast = playerFromAPI.statistics[0].dribbles.past
+                relevantPlayerPerformance.foulsDrawn = playerFromAPI.statistics[0].fouls.drawn
+                relevantPlayerPerformance.foulsCommitted = playerFromAPI.statistics[0].fouls.committed
                 relevantPlayerPerformance.yellowCards = playerFromAPI.statistics[0].cards.yellow
                 relevantPlayerPerformance.redCards = playerFromAPI.statistics[0].cards.red
-                relevantPlayerPerformance.saves = playerFromAPI.statistics[0].goals.saves
+                relevantPlayerPerformance.penaltiesDrawn = playerFromAPI.statistics[0].penalty.won
+                relevantPlayerPerformance.penaltiesCommitted = playerFromAPI.statistics[0].penalty.committed
+                relevantPlayerPerformance.penaltiesMissed = playerFromAPI.statistics[0].penalty.missed
+                relevantPlayerPerformance.penaltiesSaved = playerFromAPI.statistics[0].penalty.saved
                 relevantPlayerPerformance.cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0
-                relevantPlayerPerformance.penaltySaves = playerFromAPI.statistics[0].penalty.saved
-                relevantPlayerPerformance.penaltyMisses = playerFromAPI.statistics[0].penalty.missed
             }
         }
 
