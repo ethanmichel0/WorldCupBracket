@@ -42,6 +42,11 @@ data class PlayerPerformanceSoccer (
     var cleanSheet: Boolean, // manually calculated in game service, so no need to be nullable
     var ownGoals: Int = 0,
 
+    // These statistics are retrieved seperately from WhoScored
+
+    var errorsLeadingToGoal: Int = 0,
+    var goalsFromOutsideOfBox: Int = 0,
+
     override val playerSeason: PlayerSeason,
     override val game: Game,
     @Id 

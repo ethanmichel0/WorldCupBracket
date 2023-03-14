@@ -29,6 +29,10 @@ class WireMockUtility: ApplicationContextInitializer<ConfigurableApplicationCont
         TestPropertyValues
             .of("footballAPI.baseAPI=http://localhost:${wmServer.port()}/footballAPI/")
             .applyTo(applicationContext) 
+
+        TestPropertyValues
+            .of("footballAPI.whoScoredAPI=http://localhost:${wmServer.port()}/whoScoredAPI/")
+            .applyTo(applicationContext) 
     }
     companion object {
         fun stubResponse(url: String, responseBody: String, wireMockServer: WireMockServer) {

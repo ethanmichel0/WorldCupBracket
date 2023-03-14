@@ -52,10 +52,17 @@ class GetFootballDataEndpoints(private val secretsConfigurationProperties : Secr
     
     fun getAllFixturesForTeamWhoScored(teamIdWhoScored: String) = WHO_SCORED_API + "teams/${teamIdWhoScored}/fixtures"
 
+    fun getIndividualFixtureWhoScored(matchIdWhoScored: String) = WHO_SCORED_API + "matches/${matchIdWhoScored}/live"
+
     val X_RAPID_API_HOST = "v3.football.api-sports.io"
     val FOOTBALL_API_KEY: String = secretsConfigurationProperties.footballApiKey
     val STATUS_FINISHED_SHORT = "FT"
     val STATUS_POSTPONED_SHORT = "PST"
     val STATUS_SUSPENDED_SHORT = "SUSP"
     val STATUS_ABANDONED_SHORT = "ABD"
+
+    public val WHO_SCORED_OUT_OF_BOX = "OutOfBox"
+    public val WHO_SCORED_ERROR_LEADING_TO_GOAL = "LeadingToGoal"
+    public val WHO_SCORED_EVENT_TYPE_GOAL = "Goal"
+    public val WHO_SCORED_EVENT_TYPE_ERROR = "Error"
 }

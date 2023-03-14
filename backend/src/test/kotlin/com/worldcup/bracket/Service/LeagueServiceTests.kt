@@ -178,9 +178,20 @@ class LeagueServiceTests {
         val apiResponseAllFixturesInLeagueEndpointUpcomingFileName = "allFixturesPremierLeagueUpdated.json"
         val allFixturesInLeagueEndpointUpcomingResponse: String? = this::class.java.classLoader.getResource(apiResponseAllFixturesInLeagueEndpointUpcomingFileName)?.readText()
 
+        val bournemouthFixturesWhoScored = footballAPIData.getAllFixturesForTeamWhoScored("183")
+        val bournemouthFixturesWhoScoredFileName = "whoscored/bournemouthFixtures2022.html"
+        val bournemouthFixturesWhoScoredResponse: String? = this::class.java.classLoader.getResource(bournemouthFixturesWhoScoredFileName)?.readText()
+
+        val leicesterFixturesWhoScored = footballAPIData.getAllFixturesForTeamWhoScored("14")
+        val leicesterFixturesWhoScoredFileName = "whoscored/leicesterFixtures2022.html"
+        val leicesterFixturesWhoScoredResponse: String? = this::class.java.classLoader.getResource(leicesterFixturesWhoScoredFileName)?.readText()
+
         WireMockUtility.stubResponse(allFixturesInLeagueEndpoint, allFixturesInLeagueResponse!!,wireMockServer)
         WireMockUtility.stubResponse(allFixturesInLeagueEndpointUpcoming, allFixturesInLeagueEndpointUpcomingResponse!!, wireMockServer) 
-        // this endpoint only gives upcoming fixtures as opposed to one above which gives all fixtures in the season including the past in ht
+        // this endpoint only gives upcoming fixtures as opposed to one above which gives all fixtures in the season including the past
+
+        WireMockUtility.stubResponse(bournemouthFixturesWhoScored, bournemouthFixturesWhoScoredResponse!!,wireMockServer)
+        WireMockUtility.stubResponse(leicesterFixturesWhoScored, leicesterFixturesWhoScoredResponse!!,wireMockServer)
 
         gameService.setLeagueGames("39",2022)
 
@@ -193,7 +204,7 @@ class LeagueServiceTests {
 
 
         assertEquals(allGames[0].gameIdWhoScored,"1640765","the corresponding game id on whoscored website is 1640765")
-        
+
         var allScheduledTasksToGetGameUpdates = scheduledTaskRepository.findByRelatedEntity("868240")
         assertEquals(allScheduledTasksToGetGameUpdates.size,1,"task at beginning of game to receive score updates")
         assertTrue(schedulerService.futures.get(allScheduledTasksToGetGameUpdates[0].id.toString())!= null)
@@ -222,19 +233,29 @@ class LeagueServiceTests {
     @Test
     @Order(3)
     fun `get fixture at halftime`() {
+        var game = gameRepository.findByIdOrNull("86824099")!!
+
+        game.gameIdWhoScored="1640765" // i don't know how whoscored handles delayed games (if new games are created with new ids or the same game with same ids are kept with different times.
+        // this until I have info on this TODO test!!! we must manually set the gameIdWhoScored property)
+        gameRepository.save(game)
+
         val singleFixtureEndpointUrl = footballAPIData.getSingleFixtureEndpoint("86824099")
         val apiResponseSingleFixtureEndpointFilename = "singleFixtureHalftime.json"
         val singleFixtureAPIResponse: String? = this::class.java.classLoader.getResource(apiResponseSingleFixtureEndpointFilename)?.readText()
 
+        val whoscoredFixtureEndpoint = footballAPIData.getIndividualFixtureWhoScored("1640765")
+        val whoscoredFixtureResponseFileName = "whoscored/bournemouthvsleicesterfixture.html"
+        val whoscoredFixtureResponse: String? = this::class.java.classLoader.getResource(whoscoredFixtureResponseFileName)?.readText()
+
         WireMockUtility.stubResponse(singleFixtureEndpointUrl, singleFixtureAPIResponse!!,wireMockServer)
+        WireMockUtility.stubResponse(whoscoredFixtureEndpoint, whoscoredFixtureResponse!!,wireMockServer)
        
         gameService.updateScores("86824099")
         schedulerService.markTaskAsComplete(scheduledTaskRepository.findByRelatedEntity("86824099")[0].id.toString())
         // normally all scheduled tasks are marked as complete after being done, but since we are manually calling gameService.updateScores instead of 
         // scheduling it as a task as is normally done, we should manually mark as complete to imitate how it would work as a scheduled task
-
-
-        val game = gameRepository.findByIdOrNull("86824099")!!
+        
+        game = gameRepository.findByIdOrNull("86824099")!!
         val daka = playerPerformanceRepository.findPlayerPerformanceByPlayerAndGame("1098","86824099")[0]
         assertEquals(game.awayScore,1,"Leicester was up 1-0 at halftime")
         assertEquals(game.homeScore,0,"Bournemouth was down 1-0 at halftime")
@@ -242,7 +263,6 @@ class LeagueServiceTests {
         assertEquals(daka.minutes,45,"Daka played all 45 minutes")
 
         assertEquals(2,scheduledTaskRepository.findByRelatedEntity("86824099").size) 
-
    }
 
     @Test
@@ -252,7 +272,12 @@ class LeagueServiceTests {
         val apiResponseSingleFixtureEndpointFilename = "singleFixtureFulltime.json"
         val singleFixtureAPIResponse: String? = this::class.java.classLoader.getResource(apiResponseSingleFixtureEndpointFilename)?.readText()
 
-        WireMockUtility.stubResponse(singleFixtureEndpointUrl, singleFixtureAPIResponse!!,wireMockServer)
+        val whoscoredFixtureEndpoint = footballAPIData.getIndividualFixtureWhoScored("1640765")
+        val whoscoredFixtureResponseFileName = "whoscored/bournemouthvsleicesterfixture.html"
+        val whoscoredFixtureResponse: String? = this::class.java.classLoader.getResource(whoscoredFixtureResponseFileName)?.readText()
+
+        WireMockUtility.stubResponse(whoscoredFixtureEndpoint, whoscoredFixtureResponse!!,wireMockServer)
+       WireMockUtility.stubResponse(singleFixtureEndpointUrl, singleFixtureAPIResponse!!,wireMockServer)
        
         gameService.updateScores("86824099")
         val game = gameRepository.findByIdOrNull("86824099")!!
