@@ -1,6 +1,5 @@
 package com.worldcup.bracket.Entity
 
-import org.springframework.data.mongodb.core.mapping.Document
 import org.bson.types.ObjectId
 
 abstract class PlayerPerformance {

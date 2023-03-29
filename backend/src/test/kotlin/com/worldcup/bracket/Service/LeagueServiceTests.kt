@@ -114,7 +114,7 @@ class LeagueServiceTests {
         var allPlayersInLeague2022 = playerSeasonRepository.findAll()
         assertEquals(0,allPlayersInLeague2022.size,"should be 0 players in league")
         
-        leagueService.addNewSeasonForLeague("39",NewLeagueOptions(Sport.Soccer,false,ScheduleType.ThroughSpringOfNextYear))
+        leagueService.addNewSeasonForLeague("39",NewLeagueOptions(Sport.Soccer,false,ScheduleType.ThroughSpringOfNextYear,"2"))
         
         // manually set WhoScored.com ids for both teams as we will do in production
         val bournemouth = teamSeasonRepository.findAllCurrentTeamSeasonsByTeam("35")[0]
@@ -158,7 +158,7 @@ class LeagueServiceTests {
         WireMockUtility.stubResponse(leicesterSquad, leicesterPlayersAfterResponse!!,wireMockServer)
         WireMockUtility.stubResponse(bournemouthSquad, bournemouthPlayersAfterResponse!!,wireMockServer)
 
-        leagueService.addNewSeasonForLeague("39",NewLeagueOptions(Sport.Soccer,false,ScheduleType.ThroughSpringOfNextYear))
+        leagueService.addNewSeasonForLeague("39",NewLeagueOptions(Sport.Soccer,false,ScheduleType.ThroughSpringOfNextYear,"2"))
 
         ouattara = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"284797") // arrived during transfer window
         assertEquals(1,ouattara.size,"Ouattara arrived at Bournemouth during transfer window")
@@ -201,8 +201,6 @@ class LeagueServiceTests {
 
         var firstGameId = allGames[0].fixtureId
         assertEquals("868240",firstGameId,"one fixture in season with id: ${868240}")
-
-
         assertEquals(allGames[0].gameIdWhoScored,"1640765","the corresponding game id on whoscored website is 1640765")
 
         var allScheduledTasksToGetGameUpdates = scheduledTaskRepository.findByRelatedEntity("868240")
@@ -261,7 +259,6 @@ class LeagueServiceTests {
         assertEquals(game.homeScore,0,"Bournemouth was down 1-0 at halftime")
         assertEquals(daka.goals,1,"Daka scored 1 goal for Leicester")
         assertEquals(daka.minutes,45,"Daka played all 45 minutes")
-
         assertEquals(2,scheduledTaskRepository.findByRelatedEntity("86824099").size) 
    }
 
@@ -277,7 +274,7 @@ class LeagueServiceTests {
         val whoscoredFixtureResponse: String? = this::class.java.classLoader.getResource(whoscoredFixtureResponseFileName)?.readText()
 
         WireMockUtility.stubResponse(whoscoredFixtureEndpoint, whoscoredFixtureResponse!!,wireMockServer)
-       WireMockUtility.stubResponse(singleFixtureEndpointUrl, singleFixtureAPIResponse!!,wireMockServer)
+        WireMockUtility.stubResponse(singleFixtureEndpointUrl, singleFixtureAPIResponse!!,wireMockServer)
        
         gameService.updateScores("86824099")
         val game = gameRepository.findByIdOrNull("86824099")!!
@@ -293,6 +290,9 @@ class LeagueServiceTests {
         assertEquals(leicesterTeamSeason.losses,1,"Leicester lost")
         assertEquals(bournemouthTeamSeason.wins,1,"Bournemouth won")
         assertEquals(bournemouthTeamSeason.losses,0,"Bournemouth won")
+        assertEquals(bournemouthTeamSeason.position,1,"Bouremouth is ahead of leicester since they won when they playeded")
+        assertEquals(leicesterTeamSeason.position,2,"Bouremouth is ahead of leicester since they won when they playeded")
+
     }
         
     @AfterAll

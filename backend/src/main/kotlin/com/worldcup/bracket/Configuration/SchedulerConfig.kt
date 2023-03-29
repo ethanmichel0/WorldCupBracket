@@ -6,20 +6,27 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary
 
 
 @Configuration
 public class SchedulerConfig : SchedulingConfigurer {
 
     companion object {
-        private val POOL_SIZE = 100
+        val POOL_SIZE = 1
+    }
+
+    @Primary
+    @Bean
+    public fun taskScheduler() : TaskScheduler {
+        val scheduler = ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(SchedulerConfig.POOL_SIZE);
+        scheduler.setThreadNamePrefix("ThreadSchedulerzzzz-");
+        scheduler.initialize();
+        return scheduler
     }
     
     override public fun configureTasks(taskRegistrar: ScheduledTaskRegistrar) {
-        val scheduler = ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(SchedulerConfig.POOL_SIZE);
-        scheduler.setThreadNamePrefix("ThreadScheduler-");
-        scheduler.initialize();
-        taskRegistrar.setScheduler(scheduler);
+        taskRegistrar.setScheduler(taskScheduler());
     }
  }

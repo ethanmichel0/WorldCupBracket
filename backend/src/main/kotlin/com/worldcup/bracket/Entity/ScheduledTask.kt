@@ -14,6 +14,8 @@ data class ScheduledTask (
     val startTime: Long, // unix timestamp
     val repeat: Duration?, // null indicates it is a one time job
     val relatedEntity: String,
+    val season: Int? = null, // used for daily schedule check in different leagues, which may have different season (e.g. March 2023 is Premier League "2022" season as categorized in API
+    // but MLS 2023 season)
     var complete: Boolean = false)
 
 

@@ -90,7 +90,8 @@ class LeagueService(
                     country=responseWrapperLeague.response[0].country.name,
                     sport=newLeagueOptions.sport,
                     playoffs=newLeagueOptions.playoffs,
-                    scheduleType=newLeagueOptions.scheduleType
+                    scheduleType=newLeagueOptions.scheduleType,
+                    leagueIdWhoScored=newLeagueOptions.leagueIdWhoScored
             )
             leagueRepository.save(
                 relevantLeagueFromDB
@@ -123,8 +124,7 @@ class LeagueService(
                     allRelevantTeamSeasons.add(TeamSeason(
                         team = relevantTeam,
                         league = relevantLeagueFromDB,
-                        season = latestSeason,
-                        position = teamInfo.rank
+                        season = latestSeason
                     ))
                 }   
             }
@@ -161,11 +161,11 @@ class LeagueService(
         
         if (firstTimeAddingTeamThisSeason) {
             val date = GregorianCalendar();
-            date.set(Calendar.HOUR_OF_DAY, 0);
-            date.set(Calendar.MINUTE, 0);
-            date.set(Calendar.SECOND, 0);
-            date.set(Calendar.MILLISECOND, 0);
-            date.add(Calendar.DAY_OF_MONTH, 1);
+            // date.set(Calendar.HOUR_OF_DAY, 0);
+            date.add(Calendar.MINUTE, 1);
+            // date.set(Calendar.SECOND, 0);
+            // date.set(Calendar.MILLISECOND, 0);
+            // date.add(Calendar.DAY_OF_MONTH, 1);
 
             val scheduleTask = schedulerService.addNewTask(
                 task = Runnable {

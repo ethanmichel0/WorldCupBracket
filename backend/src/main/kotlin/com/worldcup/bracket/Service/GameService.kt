@@ -59,6 +59,13 @@ class GameService(private val gameRepository : GameRepository,
 
     val httpClient = HttpClient.newHttpClient()
 
+    companion object {
+        private val WRONG_PLAYER_ID_MAP = mapOf("153077" to "284475", "396757" to "313059")
+        // in api-football for certain fixtures when reporting stats, the wrong player id is reported, which is a bug that I have submitted to the support team
+        // this happens when two players have the same names (for example there are two players named "Luke Harris", one with id 153077 and other = 284475).
+        // whenever 153077 is returned (Luke Harris on English League 1 team Petersburg), this is actually supposed to be 284475 (Luke Harris on Fulham in 22-23 season)
+    }
+
     public fun setLeagueGames(leagueId : String, season : Int) {
         val allFixturesInLeague = gameRepository.getAllGamesInLeagueForSeason(leagueId, season)
         val allTeamsInLeague = teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(season, leagueId)
@@ -73,7 +80,7 @@ class GameService(private val gameRepository : GameRepository,
             // this function will parse through the html (no api available) from WhoScored and map each game in terms of home and away teams to their match id 
             // so we can later set the WhoScoredId after getting the game from api football to associate these games
             
-            val whoScoredMatchIdByHomeTeamAndAwayTeam: MutableMap<Pair<String,String>, String> = HashMap()
+            val whoScoredMatchIdByHomeAndAwayIdsWhoScored: MutableMap<Pair<String,String>, String> = HashMap()
 
             for (team in allTeamsInLeague) {
                 val allFixturesWhoScoredForTeamRequest = BuildNewRequest(footballAPIData.getAllFixturesForTeamWhoScored(team.team.teamIdWhoScored!!),"GET")
@@ -87,8 +94,9 @@ class GameService(private val gameRepository : GameRepository,
                         .forEach{
                             val matchDataJavascriptSplitByComma = it.split(",")
                             // there may be multiple script elements that are children of div#layoutWrapper so need to make sure we are in right one
-                            if (matchDataJavascriptSplitByComma.size >= 9) {
-                                whoScoredMatchIdByHomeTeamAndAwayTeam[Pair(matchDataJavascriptSplitByComma[5].substring(1,matchDataJavascriptSplitByComma[5].lastIndex),matchDataJavascriptSplitByComma[8].substring(1,matchDataJavascriptSplitByComma[8].lastIndex))] = matchDataJavascriptSplitByComma[0]
+                            // we also need to check that the fixture between the two teams is for the right league, as two teams may play each other in multiple leagues (for example, Premier league and FA CUP)
+                            if (matchDataJavascriptSplitByComma.size >= 19 && matchDataJavascriptSplitByComma[18] == relevantLeagueFromDB.leagueIdWhoScored) {
+                                whoScoredMatchIdByHomeAndAwayIdsWhoScored[Pair(matchDataJavascriptSplitByComma[4],matchDataJavascriptSplitByComma[7])] = matchDataJavascriptSplitByComma[0].trim('[')
                             }
                         }
                     }
@@ -113,7 +121,7 @@ class GameService(private val gameRepository : GameRepository,
                     date=game.fixture.timestamp,
                     fixtureId=game.fixture.id,
                     league=relevantLeagueFromDB,
-                    gameIdWhoScored=whoScoredMatchIdByHomeTeamAndAwayTeam[Pair(relevantHomeTeam.team.name,relevantAwayTeam.team.name)]
+                    gameIdWhoScored=whoScoredMatchIdByHomeAndAwayIdsWhoScored[Pair(relevantHomeTeam.team.teamIdWhoScored,relevantAwayTeam.team.teamIdWhoScored)]
                 ))
 
                 val cal = GregorianCalendar();
@@ -184,12 +192,16 @@ class GameService(private val gameRepository : GameRepository,
     }
 
     public fun updateScores(fixtureId : String) {
+        println("SCORE IS ${fixtureId}")
         val request = BuildNewRequest(footballAPIData.getSingleFixtureEndpoint(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
+        if (responseWrapper.response == null || responseWrapper.response.size == 0) println("${response.body()} is the response body for null game")
         val game : Game? = gameRepository.findByIdOrNull(responseWrapper.response[0].fixture.id)
 
         if (game != null) {
+                val homeTeamSeason = teamSeasonRepository.findByIdOrNull(game.home.id.toString())!!
+                val awayTeamSeason = teamSeasonRepository.findByIdOrNull(game.away.id.toString())!!
                 val individualMatchWhoScoredRequest = BuildNewRequest(footballAPIData.getIndividualFixtureWhoScored(game.gameIdWhoScored!!),"GET")
                 val individualMatchWhoScoredResponse = httpClient.send(individualMatchWhoScoredRequest, HttpResponse.BodyHandlers.ofString())
             
@@ -197,7 +209,7 @@ class GameService(private val gameRepository : GameRepository,
                 
                 val whoScoredEvents = Gson().fromJson(whoScoredEventsJsonAsString, WhoScoredEvents::class.java)
                 val goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer: MutableMap<String,MutableList<Int>> = HashMap()
-                
+                if (whoScoredEvents.matchCentreData == null) println(game)
                 for (event in whoScoredEvents.matchCentreData.events) {
                     if (event.playerId != null) {
                         var playerGoalsOutsideBoxAndErrors = goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer.get(whoScoredEvents.matchCentreData.playerIdNameDictionary.get(event.playerId))
@@ -209,7 +221,7 @@ class GameService(private val gameRepository : GameRepository,
                         if (event.qualifiers.filter{footballAPIData.WHO_SCORED_OUT_OF_BOX in it.type.displayName}.size>0 && event.type.displayName == footballAPIData.WHO_SCORED_EVENT_TYPE_GOAL) {
                             playerGoalsOutsideBoxAndErrors!![0] ++
                         }
-                        if (event.qualifiers.filter{it.type.displayName==footballAPIData.WHO_SCORED_ERROR_LEADING_TO_GOAL}.size>0 && event.type.displayName == footballAPIData.WHO_SCORED_EVENT_TYPE_GOAL) {
+                        if (event.qualifiers.filter{it.type.displayName==footballAPIData.WHO_SCORED_ERROR_LEADING_TO_GOAL}.size>0 && event.type.displayName == footballAPIData.WHO_SCORED_EVENT_TYPE_ERROR) {
                             playerGoalsOutsideBoxAndErrors!![1] ++
                         }
                     }
@@ -227,40 +239,62 @@ class GameService(private val gameRepository : GameRepository,
                         )
                 }
                 if (responseWrapper.response[0].fixture.status.short == footballAPIData.STATUS_FINISHED_SHORT && ! game.scoresAlreadySet) {
+
                     if (game.knockoutGame) {
-                        game.home.goalsForKnockout += responseWrapper.response[0].goals.home!!
-                        game.away.goalsForKnockout += responseWrapper.response[0].goals.away!!
-                        game.home.goalsAgainstKnockout += responseWrapper.response[0].goals.away!!
-                        game.away.goalsAgainstKnockout += responseWrapper.response[0].goals.home!!
+                        homeTeamSeason.goalsForKnockout += responseWrapper.response[0].goals.home!!
+                        awayTeamSeason.goalsForKnockout += responseWrapper.response[0].goals.away!!
+                        homeTeamSeason.goalsAgainstKnockout += responseWrapper.response[0].goals.away!!
+                        awayTeamSeason.goalsAgainstKnockout += responseWrapper.response[0].goals.home!!
 
                         if (responseWrapper.response[0].goals.home!! > responseWrapper.response[0].goals.away!! ||
                                 responseWrapper.response[0].score.penalty.home!! > responseWrapper.response[0].score.penalty.away!!) {
-                                    game.winner = game.home
-                                    game.home.winsKnockout ++
-                                    game.away.lossesKnockout ++
+                                    game.winner = homeTeamSeason
+                                    homeTeamSeason.winsKnockout ++
+                                    awayTeamSeason.lossesKnockout ++
                                 } else {
-                                    game.winner = game.away
-                                    game.away.winsKnockout ++
-                                    game.home.lossesKnockout ++
+                                    game.winner = awayTeamSeason
+                                    awayTeamSeason.winsKnockout ++
+                                    homeTeamSeason.lossesKnockout ++
                                 }
                     } else {
-                        game.home.goalsForGroup += responseWrapper.response[0].goals.home!!
-                        game.away.goalsForGroup += responseWrapper.response[0].goals.away!!
-                        game.home.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
-                        game.away.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
+                        homeTeamSeason.goalsForGroup += responseWrapper.response[0].goals.home!!
+                        awayTeamSeason.goalsForGroup += responseWrapper.response[0].goals.away!!
+                        homeTeamSeason.goalsAgainstGroup += responseWrapper.response[0].goals.away!!
+                        awayTeamSeason.goalsAgainstGroup += responseWrapper.response[0].goals.home!!
                         if (responseWrapper.response[0].goals.home!! > responseWrapper.response[0].goals.away!!) {
-                            game.winner = game.home
-                            game.home.winsGroup ++
-                            game.away.lossesGroup ++
+                            game.winner = homeTeamSeason
+                            homeTeamSeason.winsGroup ++
+                            awayTeamSeason.lossesGroup ++
                         } else if (responseWrapper.response[0].goals.home!! < responseWrapper.response[0].goals.away!!) {
-                            game.winner = game.away
-                            game.away.winsGroup ++
-                            game.home.lossesGroup ++;
+                            game.winner = awayTeamSeason
+                            awayTeamSeason.winsGroup ++
+                            homeTeamSeason.lossesGroup ++;
                         } else {
-                            game.home.ties ++
-                            game.away.ties ++
+                            homeTeamSeason.ties ++
+                            awayTeamSeason.ties ++
                         }
                     }
+
+                    gameRepository.save(game)
+                    teamSeasonRepository.saveAll(listOf(homeTeamSeason,awayTeamSeason))
+
+                    // after game is done, update league standings
+                    val teamSeasons = teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(homeTeamSeason.season,homeTeamSeason.league.id).toMutableList();
+                    teamSeasons.sortWith(compareByDescending<TeamSeason>{it.pointsGroup}.thenByDescending{it.goalsDifferenceGroup})
+                    println("size of teamSeasons is: ${teamSeasons.size}")
+                    println("contents of teamSEasons is ${teamSeasons}")
+                    teamSeasons.forEachIndexed{index,element ->
+                        println("TEST!!")
+                        element.position = index + 1
+                        println("INDEX IS: ${index}")
+                        println("points is ${element.pointsGroup}")
+                        println("ELEMENT position IS: ${element.position}")
+                    }
+                    println("NOW CONTENTS OF TEAMSEASONS IS: ${teamSeasons}")
+                    teamSeasonRepository.saveAll(teamSeasons)
+                    println("after getting from repository: ${teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(homeTeamSeason.season,homeTeamSeason.league.id).toMutableList()}")
+                    println("getting from repo individually for leicester: ${teamSeasonRepository.findTeamSeasonBySeasonAndTeam(2022,"46")[0].position}")
+                    println("getting from repo individually for Bournemouth: ${teamSeasonRepository.findTeamSeasonBySeasonAndTeam(2022,"35")[0].position}")
                     game.scoresAlreadySet = true;
                 } else if (! listOf(footballAPIData.STATUS_POSTPONED_SHORT,footballAPIData.STATUS_SUSPENDED_SHORT,footballAPIData.STATUS_ABANDONED_SHORT).contains(responseWrapper.response[0].fixture.status.short)) {
                     // assuming game is still in progress, schedule next retrieval for a minute in the future (games update every minute)
@@ -271,16 +305,16 @@ class GameService(private val gameRepository : GameRepository,
                         type = TaskType.GetScoresForFixture,
                         relatedEntity = game.fixtureId
                     ))
+                    gameRepository.save(game)
+                    teamSeasonRepository.saveAll(listOf(homeTeamSeason,awayTeamSeason))
                 } // TODO if game is abandoned, notify players
-                gameRepository.save(game)
-                teamSeasonRepository.saveAll(listOf(game.home,game.away))
         }
     }
 
     private fun setPlayerStatistics(allPlayersBothTeams: List<PlayersNested>, allEvents: List<AllEvents>, relatedGame: Game, playerNameToGoalsOutsideBoxAndErrors: Map<String,List<Int>>) {
-        val homeTeamId = relatedGame.home.id
-        val awayTeamId = relatedGame.away.id
-        val allPlayerSeasonsSameGameFromRepo = playerSeasonRepository.findAllPlayersFromOneGame(homeTeamId.toString(),awayTeamId.toString())
+        val homeTeamId = relatedGame.home.team.id
+        val awayTeamId = relatedGame.away.team.id
+        val allPlayerSeasonsSameGameFromRepo = playerSeasonRepository.findAllPlayersFromOneGame(homeTeamId,awayTeamId,relatedGame.league.id)
 
         // we will create a new player performance the first time entering this method, otherwise will use existing records
         // this is why it is declared as a mutable list even though when retrieved from the database it will not be used as a mutable list,
@@ -298,34 +332,47 @@ class GameService(private val gameRepository : GameRepository,
                 // this indicates that we are retrieving a game earlier this season with players listed who no longer play for the club and hence are 
                 // not in the database. This should only happen if we get current sqauds from a league partway through the season when some of the original players have left the club
                 // and thus never had PlayerSeason objects created. NOTE that this condition will only enter if we have added a new league partway through it's season
+                // this could also happen if api-football has a bug and reports the wrong player id, which doesn't correspond to the right player (see condition below)
 
-                val playerInfoRequest = BuildNewRequest(footballAPIData.getIndividualPlayerForSeasonEndpoint(playerFromAPI.player.id,relatedGame.home.season),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
-                val playerInfoResponse = httpClient.send(playerInfoRequest, HttpResponse.BodyHandlers.ofString());
-                val playerInfoWrapper : PlayerInfoSinglePlayerRequest = Gson().fromJson(playerInfoResponse.body(), PlayerInfoSinglePlayerRequest::class.java)
-                
-                val playerWhoLeftClub = if (playerRepository.findByIdOrNull(playerFromAPI.player.id) != null) playerRepository.findByIdOrNull(playerFromAPI.player.id)!! else
-                Player(
-                    id = playerFromAPI.player.id,
-                    name = playerFromAPI.player.name
-                )
+                if (WRONG_PLAYER_ID_MAP.containsKey(playerFromAPI.player.id)) {
+                    println(playerFromAPI.player.name + "is mapped to wrong id: " + playerFromAPI.player.id + ". This is a bug that I submitted")
+                    matchingPlayerFromRepo.add(allPlayerSeasonsSameGameFromRepo.filter{playerFromRepo -> playerFromRepo.player.id == WRONG_PLAYER_ID_MAP[playerFromAPI.player.id]}[0])
+                    // see declaration of WRONG_PLAYER_ID_MAO for further discussion of this bug.
+                } else {
+                    Thread.sleep(5000)
+                    val playerInfoRequest = BuildNewRequest(footballAPIData.getIndividualPlayerForSeasonEndpoint(playerFromAPI.player.id,relatedGame.home.season),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+                    val playerInfoResponse = httpClient.send(playerInfoRequest, HttpResponse.BodyHandlers.ofString());
 
-                // if player is in database (they started season in same league but @ different club (for example Chelsea to Arsenal) than they will already be in database. 
-                // however if they joined the league from a team in a different league, (example MLS to Premier League) they may not be in database if the other league is not accounted for)
+                    val playerInfoWrapper : PlayerInfoSinglePlayerRequest = Gson().fromJson(playerInfoResponse.body(), PlayerInfoSinglePlayerRequest::class.java)
 
-                val playerSeasonNoLongerPlaysForClub = PlayerSeason(
-                    player = playerWhoLeftClub,
-                    teamSeason = if (relatedGame.home.team.id == playerInfoWrapper.response[0].statistics[1].team.id) relatedGame.home else relatedGame.away,
-                    position = playerInfoWrapper.response[0].statistics[1].games.position,
-                    number = playerFromAPI.statistics[0].games.number!!,
-                    playerLeftClubDuringSeason = true // this condition will only enter (no player found in database) if we added a league midseason and got an old game with a player who left the club
-                    // before we added the league
-                )
+                    if (playerInfoWrapper.response.size==0 || playerInfoWrapper.response[0].statistics.size < 2)  {
+                        println("ISSUES WITH PLAYER: ${playerFromAPI} who has response: ${playerInfoWrapper}")
+                        return@forEach
+                    }
+                    val playerWhoLeftClub = if (playerRepository.findByIdOrNull(playerFromAPI.player.id) != null) playerRepository.findByIdOrNull(playerFromAPI.player.id)!! else
+                    Player(
+                        id = playerFromAPI.player.id,
+                        name = playerFromAPI.player.name
+                    )
 
-                matchingPlayerFromRepo.add(playerSeasonNoLongerPlaysForClub)
-                playerRepository.save(playerWhoLeftClub)
-                playerSeasonRepository.save(playerSeasonNoLongerPlaysForClub)
+                    // if player is in database (they started season in same league but @ different club (for example Chelsea to Arsenal) than they will already be in database. 
+                    // however if they joined the league from a team in a different league, (example MLS to Premier League) they may not be in database if the other league is not accounted for)
 
-                logger.info("New player : ${playerWhoLeftClub} added to database since league: ${relatedGame.home.league} was added midseason after player already left club")
+                    val playerSeasonNoLongerPlaysForClub = PlayerSeason(
+                        player = playerWhoLeftClub,
+                        teamSeason = if (relatedGame.home.team.id == playerInfoWrapper.response[0].statistics[1].team.id) relatedGame.home else relatedGame.away,
+                        position = playerInfoWrapper.response[0].statistics[1].games.position,
+                        number = playerFromAPI.statistics[0].games.number!!,
+                        playerLeftClubDuringSeason = true // this condition will only enter (no player found in database) if we added a league midseason and got an old game with a player who left the club
+                        // before we added the league
+                    )
+
+                    matchingPlayerFromRepo.add(playerSeasonNoLongerPlaysForClub)
+                    playerRepository.save(playerWhoLeftClub)
+                    playerSeasonRepository.save(playerSeasonNoLongerPlaysForClub)
+
+                    logger.info("New player : ${playerWhoLeftClub} added to database since league: ${relatedGame.home.league} was added midseason after player already left club")
+                }
             }
             if (firstTimeCreatingPerformances) {
                 playerPerformances.add(
@@ -357,7 +404,7 @@ class GameService(private val gameRepository : GameRepository,
                         penaltiesMissed = playerFromAPI.statistics[0].penalty.missed,
                         penaltiesSaved = playerFromAPI.statistics[0].penalty.saved,
                         penaltiesScored = playerFromAPI.statistics[0].penalty.scored,
-                        cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0,
+                        cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.away.team) relatedGame.homeScore == 0 else relatedGame.awayScore == 0,
                         errorsLeadingToGoal = playerErrors,
                         goalsFromOutsideOfBox = playerGoalsOutsideBox
                     )
@@ -387,7 +434,7 @@ class GameService(private val gameRepository : GameRepository,
                 relevantPlayerPerformance.penaltiesCommitted = playerFromAPI.statistics[0].penalty.committed
                 relevantPlayerPerformance.penaltiesMissed = playerFromAPI.statistics[0].penalty.missed
                 relevantPlayerPerformance.penaltiesSaved = playerFromAPI.statistics[0].penalty.saved
-                relevantPlayerPerformance.cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.home.team) relatedGame.awayScore == 0 else relatedGame.homeScore == 0
+                relevantPlayerPerformance.cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.away.team) relatedGame.homeScore == 0 else relatedGame.awayScore == 0
                 relevantPlayerPerformance.errorsLeadingToGoal = playerErrors
                 relevantPlayerPerformance.goalsFromOutsideOfBox = playerGoalsOutsideBox
             }

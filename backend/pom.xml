@@ -141,10 +141,6 @@
 			<artifactId>kotlinx-coroutines-core</artifactId>
 			<version>1.6.4</version>
 		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-websocket</artifactId>
-		</dependency>
 	</dependencies>
 
 	<build>

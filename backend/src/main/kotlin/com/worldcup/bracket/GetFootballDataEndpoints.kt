@@ -48,7 +48,7 @@ class GetFootballDataEndpoints(private val secretsConfigurationProperties : Secr
 
     fun getAllPlayersOnTeamEndpoint(team : String) = BASE_API + "players/squads?team=${team}"
 
-    fun getIndividualPlayerForSeasonEndpoint(playerId: String, season: Int) = BASE_API + "player?id=${playerId}&season=${season}"
+    fun getIndividualPlayerForSeasonEndpoint(playerId: String, season: Int) = BASE_API + "players?id=${playerId}&season=${season}"
     
     fun getAllFixturesForTeamWhoScored(teamIdWhoScored: String) = WHO_SCORED_API + "teams/${teamIdWhoScored}/fixtures"
 

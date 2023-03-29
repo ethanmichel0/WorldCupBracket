@@ -6,8 +6,8 @@ import com.worldcup.bracket.Entity.ScheduleType
 data class NewLeagueOptions(
     val sport: Sport,
     val playoffs: Boolean,
-    val scheduleType: ScheduleType
+    val scheduleType: ScheduleType,
+    val leagueIdWhoScored: String 
 )
 
-// var espnId: String, TODO This may be added in the future as ESPN allows certain stastistics such as goals out of box and free kicks that
-// are not available otherwise
+/// whoScored.com allows us to incorporate extra statistics such as goals outside of box and errors leading to goal
