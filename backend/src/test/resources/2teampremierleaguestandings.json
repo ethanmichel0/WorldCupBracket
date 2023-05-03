@@ -22,7 +22,7 @@
                 "standings": [
                     [
                         {
-                            "rank": 14,
+                            "rank": 2,
                             "team": {
                                 "id": 46,
                                 "name": "Leicester",
@@ -67,7 +67,7 @@
                             "update": "2023-01-23T00:00:00+00:00"
                         },
                         {
-                            "rank": 18,
+                            "rank": 1,
                             "team": {
                                 "id": 35,
                                 "name": "Bournemouth",

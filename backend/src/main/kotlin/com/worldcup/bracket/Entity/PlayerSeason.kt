@@ -15,6 +15,8 @@ data class PlayerSeason(
     @Id 
     val id: ObjectId = ObjectId.get()
 ) {
+    var gamesPlayed: Int = 0
+    var gamesStarted: Int = 0
     var goals : Int = 0
     var assists : Int = 0
     var totalPoints: Int = 0

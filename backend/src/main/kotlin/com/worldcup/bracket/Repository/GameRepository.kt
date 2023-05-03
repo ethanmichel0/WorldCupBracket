@@ -10,10 +10,10 @@ import java.util.Date
 interface GameRepository : MongoRepository<Game,String>{
     fun findByOrderByDateAsc() : List<Game>
 
-    @Query("{\$and :[{\$or:[{'home.id': ?0 }, { 'away.id' : ?0}]},{'date': {\$gte: ?1}}]}")
+    @Query("{\$and :[{\$or:[{'home.team.id': ?0 }, { 'away.team.id' : ?0}]},{'date': {\$gte: ?1}}]}")
     fun getAllGamesFromTeamUpcoming(teamSeason: String, date: Long) : List<Game>
 
-    @Query("{\$and :[{\$or:[{'home.id': ?0 }, { 'away.id' : ?0}]},{'date': {\$lt: ?1}}]}")
+    @Query("{\$and :[{\$or:[{'home.team.id': ?0 }, { 'away.team.id' : ?0}]},{'date': {\$lt: ?1}}]}")
     fun getAllGamesFromTeamPast(teamSeason: String, date: Long) : List<Game>
 
     @Query("{\$and :[{\$or:[{'home.id': ?0 }, { 'away.id' : ?0}]},{'date': {\$lte: ?1, \$gte: ?2}}]}")
@@ -24,4 +24,7 @@ interface GameRepository : MongoRepository<Game,String>{
 
     @Query("{'league.id' : ?0, 'home.season': ?1}")
     fun getAllGamesInLeagueForSeason(league: String, season: Int) : List<Game>
+
+    @Query("{'league.id' : ?0, 'scoresAlreadySet' : false}")
+    fun getAllUpcomingGamesInLeague(league: String) : List<Game>
 }

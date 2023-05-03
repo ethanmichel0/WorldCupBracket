@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
@@ -14,6 +15,7 @@ import java.security.Principal
 
 import com.worldcup.bracket.DTO.NewDraftGroup
 import com.worldcup.bracket.DTO.SetDraftTime
+import com.worldcup.bracket.DTO.DraftGroupUpdateAfterPlayerDrafted
 import com.worldcup.bracket.Service.DraftGroupService
 import com.worldcup.bracket.Entity.DraftGroup
 
@@ -30,15 +32,29 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
 
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
 
-    @GetMapping("/api/draftgroups/{draftGroupId}")
-    fun getSpecificDraftGroup(@PathVariable draftGroupId : String) : ResponseEntity<DraftGroup> {
-        val group = draftGroupService.getSpecificDraftGroup(draftGroupId)
-        if (group != null) return ResponseEntity.status(HttpStatus.OK).body(group)
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(group)
+    @GetMapping("/api/draftgroups")
+    fun getAllDraftGroupsForUser(principal: Principal) : ResponseEntity<List<DraftGroup>> {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(draftGroupService.getAllDraftGroupsForUser(principal))
+        } catch (e: Exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
+
+    @GetMapping("/api/draftgroups/{draftGroupName}")
+    fun getSpecificDraftGroup(@PathVariable draftGroupName : String) : ResponseEntity<DraftGroup> {
+        try {
+            val group = draftGroupService.getSpecificDraftGroup(draftGroupName)
+            return ResponseEntity.status(HttpStatus.OK).body(group)
+        } catch (e: Exception) {
+            if (e.message == DraftGroupService.GROUP_DNE) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
     }
 
     @PostMapping("/api/draftgroups")
     fun createNewDraftGroup(@RequestBody body : NewDraftGroup, principal: Principal) : ResponseEntity<String> {
+        println("INSIDE CREATE NEW DRAFT GROUP!")
         try {
             draftGroupService.saveNewDraftGroup(body,principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
@@ -46,15 +62,15 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
             if (e.message == DraftGroupService.GROUP_ALREADY_EXISTS) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
             }
-
+            println("${e.stackTraceToString()} + IS MESSAGE")
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
         }
     }
 
-    @PutMapping("/api/draftgroups/{draftGroupId}/draftTime")
-    fun setDraftTime(@PathVariable draftGroupId : String, principal: Principal, @RequestBody body: SetDraftTime) : ResponseEntity<String> {
+    @PutMapping("/api/draftgroups/{draftGroupName}/draftTime")
+    fun setDraftTime(@PathVariable draftGroupName : String, principal: Principal, @RequestParam time: Long) : ResponseEntity<String> {
         try {
-            draftGroupService.scheduleDraftGroup(draftGroupId,body,principal)
+            draftGroupService.scheduleDraftGroup(draftGroupName,time,principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
         } catch (e: Exception) {
             if (e.message == DraftGroupService.GROUP_DNE)
@@ -91,10 +107,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    @DeleteMapping("/api/draftgroups/{draftGroupId}/remove/{userId}")
-    fun removeUserFromDraftGroup(@PathVariable draftGroupId: String, @PathVariable userId: String, principal: Principal) : ResponseEntity<String> {
+    @DeleteMapping("/api/draftgroups/{draftGroupName}/remove/{userId}")
+    fun removeUserFromDraftGroup(@PathVariable draftGroupName: String, @PathVariable userId: String, principal: Principal) : ResponseEntity<String> {
         try {
-            draftGroupService.removeUserFromDraftGroup(draftGroupId,userId,principal)
+            draftGroupService.removeUserFromDraftGroup(draftGroupName,userId,principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
         } catch (e: Exception) {
             if (e.message == DraftGroupService.NOT_PERMITTED) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
@@ -102,10 +118,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    @DeleteMapping("/api/draftgroups/{draftGroupId}")  
-    fun deleteDraftGroup(@PathVariable draftGroupId : String, principal: Principal) : ResponseEntity<String> {
+    @DeleteMapping("/api/draftgroups/{draftGroupName}")  
+    fun deleteDraftGroup(@PathVariable draftGroupName : String, principal: Principal) : ResponseEntity<String> {
         try {
-            draftGroupService.removeDraftGroup(draftGroupId, principal)
+            draftGroupService.removeDraftGroup(draftGroupName, principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
         } catch (e: Exception) {
             if (e.message == DraftGroupService.NOT_PERMITTED) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
@@ -113,13 +129,13 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    @MessageMapping("/api/draftgroups/{draftGroupId}/draftplayer/{playerId}")
+    @MessageMapping("/api/draftgroups/{draftGroupName}/draftplayer/{playerId}")
     @SendTo("/topic/draft/{draftGroup}")
-    fun greeting(@PathVariable draftGroupId: String, @PathVariable playerId: String, principal: Principal) : String {
+    fun greeting(@PathVariable draftGroupName: String, @PathVariable playerId: String, principal: Principal) : ResponseEntity<DraftGroupUpdateAfterPlayerDrafted> {
         try {
-            return draftGroupService.draftPlayerForUser(draftGroupId,playerId,principal)
+            return ResponseEntity.status(HttpStatus.OK).body(draftGroupService.draftPlayerForUser(draftGroupName,playerId,principal))
         } catch (e: Exception) {
-            return e.message!!
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
 }

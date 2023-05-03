@@ -6,8 +6,8 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.mongodb.repository.Query;
 
 interface PlayerDraftRepository : MongoRepository<PlayerDraft,String>{
-    @Query(value = "{'draftGroup.id' : ?0")
-    fun findAllPlayerDraftsByGroup(draftGroupId: String) : List<PlayerDraft> 
-    @Query(value = "{'draftGroup.id' : ?0, 'user.id' : ?1")
-    fun findPlayerDraftByGroupAndUser(draftGroupId: String, userId: String) : List<PlayerDraft> 
+    @Query(value = "{'draftGroup.name' : ?0}")
+    fun findAllPlayerDraftsByGroup(draftGroupName: String) : List<PlayerDraft> 
+    @Query(value = "{'draftGroup.name' : ?0, 'user.id' : ?1}")
+    fun findPlayerDraftByGroupAndUser(draftGroupName: String, userId: String) : List<PlayerDraft> 
 }

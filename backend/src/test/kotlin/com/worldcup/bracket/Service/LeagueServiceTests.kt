@@ -255,10 +255,14 @@ class LeagueServiceTests {
         
         game = gameRepository.findByIdOrNull("86824099")!!
         val daka = playerPerformanceRepository.findPlayerPerformanceByPlayerAndGame("1098","86824099")[0]
+        val dakaPlayerSeason = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"1098")[0]
         assertEquals(game.awayScore,1,"Leicester was up 1-0 at halftime")
         assertEquals(game.homeScore,0,"Bournemouth was down 1-0 at halftime")
         assertEquals(daka.goals,1,"Daka scored 1 goal for Leicester")
         assertEquals(daka.minutes,45,"Daka played all 45 minutes")
+        assertEquals(daka.penaltiesDrawn,1,"Daka won that pen bruh")
+        assertEquals(daka.penaltiesCommitted,1,"Daka committed that pen bruh")
+        assertEquals(dakaPlayerSeason.goals,1,"So Far Daka has scored 1 goal during the season")
         assertEquals(2,scheduledTaskRepository.findByRelatedEntity("86824099").size) 
    }
 

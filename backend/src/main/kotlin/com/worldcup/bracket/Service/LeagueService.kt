@@ -67,6 +67,7 @@ class LeagueService(
 
     companion object {
         private val NOT_PERMITTED_TO_MARK_SEASON_AS_OVER = "You must be an admin to mark a season as over"
+        public val INCORRECT_LEAGUE_ID_OR_SEASON = "The League Id or Season you entered is incorrect, please try again"
     }
 
 
@@ -114,7 +115,6 @@ class LeagueService(
                         name=teamInfo.team.name,
                         id=teamInfo.team.id,
                         logo=teamInfo.team.logo,
-                        group=teamInfo.group
                         )
 
                     if (teamRepository.findByName(teamInfo.team.name).size==0) {
@@ -124,7 +124,8 @@ class LeagueService(
                     allRelevantTeamSeasons.add(TeamSeason(
                         team = relevantTeam,
                         league = relevantLeagueFromDB,
-                        season = latestSeason
+                        season = latestSeason,
+                        group = teamInfo.group
                     ))
                 }   
             }
@@ -244,5 +245,12 @@ class LeagueService(
         scheduledTaskRepository.save(schedulerService.markTaskAsComplete(leagueId))
 
         teamSeasonRepository.saveAll(teamSeasonsForLeague)
+    }
+
+    public fun getLeagueStandingsForSeason(leagueId: String, season: Int) : List<TeamSeason> {
+        if (teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(season,leagueId).size == 0) {
+            throw Exception(INCORRECT_LEAGUE_ID_OR_SEASON)
+        }
+        return teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(season,leagueId)
     }
 }

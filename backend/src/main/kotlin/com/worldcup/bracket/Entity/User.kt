@@ -2,6 +2,7 @@ package com.worldcup.bracket.Entity
 
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
+import org.springframework.data.mongodb.core.mapping.DocumentReference
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 
@@ -14,6 +15,8 @@ data class User(
     val service: AuthService, 
     @JsonIgnore
     var password: String? = null,
+    @DocumentReference(lazy=true)
+    val draftGroups: MutableList<DraftGroup> = mutableListOf<DraftGroup>(),
     val createdDate: Long = System.currentTimeMillis() / 1000,
     @Id 
     val id : ObjectId = ObjectId.get()) {

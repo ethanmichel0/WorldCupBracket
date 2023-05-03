@@ -13,7 +13,7 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.crypto.password.PasswordEncoder
 
 import org.springframework.security.config.Customizer.withDefaults
-
+import org.springframework.security.web.context.SecurityContextHolderFilter
 
 @EnableWebSecurity
 @Configuration
@@ -25,11 +25,16 @@ public class SecurityConfig(private val authenticationSuccessHandler : Authentic
                 .csrf{csrf -> csrf.disable()}
                 .authorizeRequests{auth -> 
                     auth.antMatchers("/api/draftgroups").authenticated()
+                    auth.antMatchers("/api/games/**").authenticated()
+                    auth.antMatchers("/app/**").authenticated()
+                    // auth.antMatchers("/ws").authenticated()
+                    auth.antMatchers("/ws/**").authenticated()
                     auth.antMatchers("/**").permitAll()
                 }
+                .addFilterBefore(DisableHttpOnlyFilter(), SecurityContextHolderFilter::class.java)
                 .oauth2Login()
                 .successHandler(authenticationSuccessHandler)
-                //.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                //\.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 // csrf token is stored in browser as cookie XSRF-TOKEN, it is send along with POST requests in request header X-XSRF-TOKEN
                 // https://itnext.io/how-to-prevent-cross-site-request-forgery-of-legitime-cross-site-request-5b59a6a56808
                 .and()

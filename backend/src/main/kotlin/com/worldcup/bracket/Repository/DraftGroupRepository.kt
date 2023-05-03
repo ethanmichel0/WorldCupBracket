@@ -7,5 +7,6 @@ import org.springframework.stereotype.Repository
 import java.util.Date
 
 interface DraftGroupRepository : MongoRepository<DraftGroup,String>{
-    fun findByName(name : String) : List<DraftGroup>
+    fun findByName(name: String) : List<DraftGroup>
+    fun findByIdIn(ids: List<String>) : List<DraftGroup>
 }

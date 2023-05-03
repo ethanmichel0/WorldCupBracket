@@ -44,6 +44,6 @@ public class AuthenticationSuccessHandler : SavedRequestAwareAuthenticationSucce
         if (userRepository.findByEmail(userDetails.getEmail()).size == 0) {
             userRepository.save(User(userDetails.getName(), userDetails.getEmail(), AuthService.GOOGLE))
         }
-        redirectStrategy.sendRedirect(request, response, "/api/testAuth");
+        redirectStrategy.sendRedirect(request, response,"http://localhost:1234/draftgroups");
     }
 }

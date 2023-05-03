@@ -11,7 +11,7 @@ import com.worldcup.bracket.GetFootballDataEndpoints
 
 import com.worldcup.bracket.DTO.LeagueResponse
 import com.worldcup.bracket.DTO.NewDraftGroup
-import com.worldcup.bracket.DTO.SetDraftTime
+import com.worldcup.bracket.DTO.DraftGroupUpdateAfterPlayerDrafted
 import com.worldcup.bracket.Repository.DraftGroupRepository
 import com.worldcup.bracket.Repository.UserRepository
 import com.worldcup.bracket.Repository.LeagueRepository
@@ -72,6 +72,12 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         public val TOO_LATE_TO_DRAFT = "One or more of your draft leagues is now too late to draft players"
         public val NOT_YOUR_TURN = "It it not your time to draft, please be patient"
         public val PLAYER_NOT_AVAILABLE = "The player that you are trying to draft is not currently available"
+        public val NAME_ALREADY_TAKEN = "This league name is already taken"
+    }
+
+    public fun getAllDraftGroupsForUser(principal: Principal) : List<DraftGroup> {
+        val relevantUser = userRepository.findByName(principal.getName())[0]
+        return draftGroupRepository.findByIdIn(relevantUser.draftGroups.map{dg -> dg.id.toString()})
     }
 
 
@@ -80,35 +86,49 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         val password = passwordEncoder.encode(body.password)
         val allDraftGroupsSameName = draftGroupRepository.findByName(body.name)
         val owner = userRepository.findByName(principal.getName())[0]
-        val leaguesForDraft = leagueRepository.findByNameIn(body.leagueIds).toMutableList()
+
+        if (body.leagueIds == null) {
+            throw Exception(WRONG_NUMBER_LEAGUES)
+        }
+        val leaguesForDraft = leagueRepository.findByIdIn(body.leagueIds).toMutableList()
+
+        if (draftGroupRepository.findByName(body.name).size>0) {
+            throw Exception(NAME_ALREADY_TAKEN)
+        }
+
         if (leaguesForDraft.map{it.scheduleType}.distinct().size != 1) {
+            leaguesForDraft.forEach{x -> println(x.scheduleType)}
             throw Exception(WRONG_NUMBER_LEAGUES)
         }
         leaguesForDraft.forEach{league ->
-            if (league.lastDateToDraft == null || league.lastDateToDraft > Instant.now().getEpochSecond()) {
+            if (league.lastDateToDraft == null || league.lastDateToDraft <= Instant.now().getEpochSecond()) {
                 throw Exception(TIME_NOT_VALID)
             }
         }
         if (allDraftGroupsSameName.size != 0) throw Exception(GROUP_ALREADY_EXISTS)
 
         // figure out what the current season is by sending request to API
-        val requestLeague = BuildNewRequest(footballAPIData.getLeagueEndpoint(body.leagueIds[0]),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+        val requestLeague = BuildNewRequest(footballAPIData.getLeagueEndpoint(body.leagueIds!![0]),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
 
         val responseLeague = httpClient.send(requestLeague, HttpResponse.BodyHandlers.ofString());
         val responseWrapperLeague : LeagueResponse = Gson().fromJson(responseLeague.body(), LeagueResponse::class.java)
         
         val latestSeason = leagueService.getLatestSeasonGivenLeagueResponseFromAPI(responseWrapperLeague.response[0].seasons)
 
-        draftGroupRepository.save(
-            DraftGroup(
-                name=body.name,
-                password=password,
-                owner=owner,
-                members=mutableListOf(owner),
-                leagues=leaguesForDraft,
-                season = latestSeason
-            )
+        val newDraftGroup = DraftGroup(
+            name=body.name,
+            password=password,
+            owner=owner,
+            members=mutableListOf(owner),
+            leagues=leaguesForDraft,
+            season = latestSeason,
+            amountOfTimeEachTurn = body.amountTimePerTurnInSeconds,
+            numberOfPlayersEachTeam = body.numPlayers
         )
+
+        draftGroupRepository.save(newDraftGroup)
+        owner.draftGroups.add(newDraftGroup)
+        userRepository.save(owner)
     }
 
     public fun joinDraftGroup(body: NewDraftGroup, principal: Principal) {
@@ -117,55 +137,68 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
 
         if (group.size == 0) throw Exception(GROUP_DNE)
         if (! passwordEncoder.matches(body.password,group[0].password)) throw Exception(INVALID_PW)
-        if (group[0].members.filter{user -> user == currentUser}.size > 0) throw Exception (ALREADY_IN_GROUP)
+        if (group[0].members.contains(currentUser)) throw Exception (ALREADY_IN_GROUP)
         if (group[0].members.size == MAX_MEMBERS_PER_DRAFT_GROUP) throw Exception(GROUP_FULL)
         
 
         group[0].members.add(currentUser)
         draftGroupRepository.save(group[0])
+
+        currentUser.draftGroups.add(group[0])
+        userRepository.save(currentUser)
     }
 
-    public fun getSpecificDraftGroup(id: String) : DraftGroup? {
-        return draftGroupRepository.findByIdOrNull(id)
+    public fun getSpecificDraftGroup(name: String) : DraftGroup {
+        val group = draftGroupRepository.findByName(name)
+        if (group.size==0) throw Exception(GROUP_DNE)
+        return group[0]
     }
 
-    public fun removeUserFromDraftGroup(draftGroupId: String, userId: String, principal: Principal) {
+    public fun removeUserFromDraftGroup(draftGroupName: String, userId: String, principal: Principal) {
 
         val currentUser = userRepository.findByName(principal.getName())[0]
-        val group = draftGroupRepository.findByIdOrNull(draftGroupId)
+        val groups = draftGroupRepository.findByName(draftGroupName)
         val userToRemove = userRepository.findByIdOrNull(userId)
 
-        if (group == null) throw Exception(GROUP_DNE)
+        if (groups.size==0) throw Exception(GROUP_DNE)
         if (userToRemove == null) throw Exception(NO_USER_TO_REMOVE)
-        if (currentUser != group.owner) throw Exception(NOT_PERMITTED)
-        group.members = group.members.filter{
-            user -> user != userToRemove
-        }.toMutableList()
-        draftGroupRepository.save(group)
+        if (currentUser != groups[0].owner) throw Exception(NOT_PERMITTED)
+        val group = groups[0]
+        group.members.remove(userToRemove)
+        userToRemove.draftGroups.remove(group)
+        userRepository.save(userToRemove)
     }
 
-    public fun removeDraftGroup(draftGroupId: String, principal: Principal) {
+    public fun removeDraftGroup(draftGroupName: String, principal: Principal) {
         val currentUser = userRepository.findByName(principal.getName())[0]
-        val group = draftGroupRepository.findByIdOrNull(draftGroupId)
+        val groups = draftGroupRepository.findByName(draftGroupName)
 
-        if (group == null) throw Exception(GROUP_DNE)
-        if (currentUser != group.owner) throw Exception(NOT_PERMITTED)
-        draftGroupRepository.delete(group)
-        playerDraftRepository.deleteAll(playerDraftRepository.findAllPlayerDraftsByGroup(draftGroupId))
+        if (groups.size==0) throw Exception(GROUP_DNE)
+        if (currentUser != groups[0].owner) throw Exception(NOT_PERMITTED)
+        val group = groups[0]
+        val listOfMembersInGroup = mutableListOf<User>()
+        for (member in group.members) {
+            member.draftGroups.remove(group)
+            listOfMembersInGroup.add(member)
+        }
+        draftGroupRepository.delete(groups[0])
+        playerDraftRepository.deleteAll(playerDraftRepository.findAllPlayerDraftsByGroup(draftGroupName))
+        userRepository.saveAll(listOfMembersInGroup)
     }
 
-    public fun scheduleDraftGroup(draftGroupId: String, body: SetDraftTime, principal: Principal) {
+    public fun scheduleDraftGroup(draftGroupName: String, time: Long, principal: Principal) {
         val currentUser = userRepository.findByName(principal.getName())[0]
-        val group = draftGroupRepository.findByIdOrNull(draftGroupId)
+        val groups = draftGroupRepository.findByName(draftGroupName)
 
-        if (group == null) throw Exception(GROUP_DNE)
+        if (groups.size == 0) throw Exception(GROUP_DNE)
+        val group = groups[0]
         if (currentUser != group.owner) throw Exception(NOT_PERMITTED)
         if (group.members.size < 2) throw Exception(NOT_ENOUGH_MEMBERS)
 
         val instant = Instant.now()
 
         group.leagues.forEach{league ->
-            if (league.lastDateToDraft == null || league.lastDateToDraft > body.time || body.time <= instant.getEpochSecond()) {
+            if (league.lastDateToDraft == null || league.lastDateToDraft <= time || time <= instant.getEpochSecond()) {
                 throw Exception(TIME_NOT_VALID)
             }
         }
@@ -189,29 +222,30 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
             }
 
             // if there was a preexisting draft time that is changed/updated, ensure that previous task to start draft is cancelled
-            schedulerService.removeTaskFromScheduler(scheduledTaskRepository.findByRelatedEntity(group.id.toString())[0].id.toString())
+            scheduledTaskRepository.delete(schedulerService.removeTaskFromScheduler(scheduledTaskRepository.findByRelatedEntity(group.id.toString())[0].id.toString()))
         }
 
         val whenFirstPlayerMustChooseDeadline = GregorianCalendar()
-        whenFirstPlayerMustChooseDeadline.setTimeInMillis(body.time * 1000)
+        whenFirstPlayerMustChooseDeadline.setTimeInMillis(time * 1000)
         whenFirstPlayerMustChooseDeadline.add(Calendar.SECOND,group.amountOfTimeEachTurn)
 
-        schedulerService.addNewTask(
+        scheduledTaskRepository.save(schedulerService.addNewTask(
             task = Runnable{
-                draftRandomPlayerForCurrentUser(draftGroupId)
+                draftRandomPlayerForCurrentUser(group.name)
             },
             startTime = whenFirstPlayerMustChooseDeadline.toInstant(),
             type = TaskType.ScheduleDraft,
             repeatEvery = null,
-            relatedEntity = draftGroupId
-        )
+            relatedEntity = group.id.toString()
+        ))
 
-        group.draftTime = body.time
+        group.draftTime = time
         draftGroupRepository.save(group)
     }
 
-    public fun draftPlayerForUser(groupId: String, playerId: String, principal: Principal) : String {
-        val group = draftGroupRepository.findByIdOrNull(groupId)!!
+    public fun draftPlayerForUser(groupName: String, playerId: String, principal: Principal) : DraftGroupUpdateAfterPlayerDrafted {
+
+        val group = draftGroupRepository.findByName(groupName)[0]
         val userCurrentTurn : User = group.members[group.indexOfCurrentUser]
         val userMakingRequest : User = userRepository.findByName(principal.getName())[0]
 
@@ -224,9 +258,9 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         }
 
         val player = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(group.season,playerId)[0]
-        val playerDraft = playerDraftRepository.findPlayerDraftByGroupAndUser(groupId,userCurrentTurn.id.toString())[0]
+        val playerDraft = playerDraftRepository.findPlayerDraftByGroupAndUser(groupName,userCurrentTurn.id.toString())[0]
 
-        group.availablePlayers = group.availablePlayers.filter{p -> p.player.id != playerId}.toMutableList()
+        group.availablePlayers.remove(player)
         playerDraft.players.add(player)
         group.numberPlayersDrafted++
 
@@ -234,37 +268,37 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         playerDraftRepository.save(playerDraft)
 
         // since user is making choice before their time expires, we reset the time for the next user whose turn it is
-        schedulerService.removeTaskFromScheduler(scheduledTaskRepository.findByRelatedEntity(group.id.toString())[0].id.toString())
+        scheduledTaskRepository.delete(schedulerService.removeTaskFromScheduler(scheduledTaskRepository.findByRelatedEntity(group.id.toString())[0].id.toString()))
 
         // check to make sure that all teams aren't yet full
         if (! group.draftComplete) {
             val timeNextPlayerRunsOutOfTime = GregorianCalendar()
             timeNextPlayerRunsOutOfTime.add(Calendar.SECOND,group.amountOfTimeEachTurn)
 
-            schedulerService.addNewTask(
+            scheduledTaskRepository.save(schedulerService.addNewTask(
                 task = Runnable{
-                    group.indexOfCurrentUser = if (group.indexOfCurrentUser<group.members.size-1) group.indexOfCurrentUser ++ else 0
+                    group.indexOfCurrentUser = if (group.indexOfCurrentUser<group.members.size-1) group.indexOfCurrentUser + 1 else 0
                     draftGroupRepository.save(group)
-                    draftRandomPlayerForCurrentUser(groupId)
+                    draftRandomPlayerForCurrentUser(groupName)
                 },
                 startTime = timeNextPlayerRunsOutOfTime.toInstant(),
                 type = TaskType.ScheduleDraft,
                 repeatEvery = null,
-                relatedEntity = groupId
-            )
+                relatedEntity = group.id.toString()
+            ))
         }
 
-        return player.player.name
+        return DraftGroupUpdateAfterPlayerDrafted(player,group.availablePlayers)
     }
 
     // if user runs out of time to pick automatically select a player (randomly)
-    private fun draftRandomPlayerForCurrentUser(groupId: String) {
-        val group = draftGroupRepository.findByIdOrNull(groupId)!!
-        val playerDraft = playerDraftRepository.findPlayerDraftByGroupAndUser(groupId,group.members[group.indexOfCurrentUser].id.toString())[0]
+    private fun draftRandomPlayerForCurrentUser(groupName: String) {
+        val group = draftGroupRepository.findByName(groupName)[0]
+        val playerDraft = playerDraftRepository.findPlayerDraftByGroupAndUser(groupName,group.members[group.indexOfCurrentUser].id.toString())[0]
 
         val player = group.availablePlayers.random()
 
-        group.availablePlayers = group.availablePlayers.filter{p -> p.id != player.id}.toMutableList()
+        group.availablePlayers.remove(player)
         playerDraft.players.add(player)
         group.numberPlayersDrafted++
 
@@ -275,20 +309,20 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         timeNextPlayerRunsOutOfTime.add(Calendar.SECOND,group.amountOfTimeEachTurn)
 
         if (! group.draftComplete) {
-            schedulerService.addNewTask(
+            scheduledTaskRepository.save(schedulerService.addNewTask(
                 task = Runnable{
-                    group.indexOfCurrentUser = if (group.indexOfCurrentUser<group.members.size-1) group.indexOfCurrentUser ++ else 0
+                    group.indexOfCurrentUser = if (group.indexOfCurrentUser<group.members.size-1) group.indexOfCurrentUser + 1 else 0
                     draftGroupRepository.save(group)
-                    draftRandomPlayerForCurrentUser(groupId)
+                    draftRandomPlayerForCurrentUser(groupName)
                 },
                 startTime = timeNextPlayerRunsOutOfTime.toInstant(),
                 type = TaskType.ScheduleDraft,
                 repeatEvery = null,
-                relatedEntity = groupId
-            )
+                relatedEntity = group.id.toString()
+            ))
         }
 
-        simpMessagingTemplate.convertAndSend("/topic/draft/${groupId}", 
-            player.player.name);
+        simpMessagingTemplate.convertAndSend("/topic/draft/${groupName}", 
+            DraftGroupUpdateAfterPlayerDrafted(player,group.availablePlayers));
     }
 }

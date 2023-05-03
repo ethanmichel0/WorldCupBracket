@@ -11,4 +11,7 @@ interface PlayerPerformanceSoccerRepository : MongoRepository<PlayerPerformanceS
 
     @Query(value = "{'game.fixtureId' : ?0}")
     fun findAllPlayerPerformancesByGame(fixtureId: String) : List<PlayerPerformanceSoccer>
+
+    @Query(value = "{'playerSeason.player.id' : ?0, 'playerSeason.teamSeason.current': true}")
+    fun findAllPlayerPerformancesByPlayerDuringCurrentSeason(playerId: String) : List<PlayerPerformanceSoccer>
 }

@@ -19,6 +19,7 @@ import com.worldcup.bracket.DTO.AllEvents
 import com.worldcup.bracket.DTO.PlayersNested
 import com.worldcup.bracket.DTO.PlayerInfoSinglePlayerRequest
 import com.worldcup.bracket.DTO.WhoScoredEvents
+import com.worldcup.bracket.DTO.StandingsResponse
 
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Repository.TeamSeasonRepository
@@ -64,6 +65,8 @@ class GameService(private val gameRepository : GameRepository,
         // in api-football for certain fixtures when reporting stats, the wrong player id is reported, which is a bug that I have submitted to the support team
         // this happens when two players have the same names (for example there are two players named "Luke Harris", one with id 153077 and other = 284475).
         // whenever 153077 is returned (Luke Harris on English League 1 team Petersburg), this is actually supposed to be 284475 (Luke Harris on Fulham in 22-23 season)
+        public val LEAGUE_DOES_NOT_EXIST = "League Does Not Exist"
+        public val NO_UPCOMING_GAMES_FOR_LEAGUE = "The league you entered has no upcoming games"
     }
 
     public fun setLeagueGames(leagueId : String, season : Int) {
@@ -192,7 +195,7 @@ class GameService(private val gameRepository : GameRepository,
     }
 
     public fun updateScores(fixtureId : String) {
-        println("SCORE IS ${fixtureId}")
+        println("fixturez IS ${fixtureId}")
         val request = BuildNewRequest(footballAPIData.getSingleFixtureEndpoint(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
@@ -208,8 +211,8 @@ class GameService(private val gameRepository : GameRepository,
                 val whoScoredEventsJsonAsString = Jsoup.parseBodyFragment(individualMatchWhoScoredResponse.body()).body().select("div#layout-wrapper > script")[0].data().substringAfter("require.config.params[\"args\"] = ").substringBefore(";")
                 
                 val whoScoredEvents = Gson().fromJson(whoScoredEventsJsonAsString, WhoScoredEvents::class.java)
+                println("who scored events is: ${whoScoredEvents}")
                 val goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer: MutableMap<String,MutableList<Int>> = HashMap()
-                if (whoScoredEvents.matchCentreData == null) println(game)
                 for (event in whoScoredEvents.matchCentreData.events) {
                     if (event.playerId != null) {
                         var playerGoalsOutsideBoxAndErrors = goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer.get(whoScoredEvents.matchCentreData.playerIdNameDictionary.get(event.playerId))
@@ -278,24 +281,22 @@ class GameService(private val gameRepository : GameRepository,
                     gameRepository.save(game)
                     teamSeasonRepository.saveAll(listOf(homeTeamSeason,awayTeamSeason))
 
-                    // after game is done, update league standings
-                    val teamSeasons = teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(homeTeamSeason.season,homeTeamSeason.league.id).toMutableList();
-                    teamSeasons.sortWith(compareByDescending<TeamSeason>{it.pointsGroup}.thenByDescending{it.goalsDifferenceGroup})
-                    println("size of teamSeasons is: ${teamSeasons.size}")
-                    println("contents of teamSEasons is ${teamSeasons}")
-                    teamSeasons.forEachIndexed{index,element ->
-                        println("TEST!!")
-                        element.position = index + 1
-                        println("INDEX IS: ${index}")
-                        println("points is ${element.pointsGroup}")
-                        println("ELEMENT position IS: ${element.position}")
+                    // after game is done, update league standings by making call to api to check standings
+                    val teamSeasons = teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeagueAndGroup(homeTeamSeason.season,homeTeamSeason.league.id,homeTeamSeason.group!!).toMutableList()
+                    
+                    val requestStandings = BuildNewRequest(footballAPIData.getStandingsEndpoint(game.home.league.id,game.home.season),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+                    val responseStandings = httpClient.send(requestStandings, HttpResponse.BodyHandlers.ofString())
+                    val responseWrapperStandings : StandingsResponse = Gson().fromJson(responseStandings.body(), StandingsResponse::class.java)
+                    println("${responseWrapperStandings.response[0].league.standings} is standings")
+                    for (group in responseWrapperStandings.response[0].league.standings) {
+                        for (team in group) {
+                            val matchingTeamSeason = teamSeasons.filter{it.team.name==team.team.name}[0]
+                            matchingTeamSeason.position = team.rank
+                        }
                     }
-                    println("NOW CONTENTS OF TEAMSEASONS IS: ${teamSeasons}")
+
                     teamSeasonRepository.saveAll(teamSeasons)
-                    println("after getting from repository: ${teamSeasonRepository.findAllTeamSeasonsBySeasonAndLeague(homeTeamSeason.season,homeTeamSeason.league.id).toMutableList()}")
-                    println("getting from repo individually for leicester: ${teamSeasonRepository.findTeamSeasonBySeasonAndTeam(2022,"46")[0].position}")
-                    println("getting from repo individually for Bournemouth: ${teamSeasonRepository.findTeamSeasonBySeasonAndTeam(2022,"35")[0].position}")
-                    game.scoresAlreadySet = true;
+                    
                 } else if (! listOf(footballAPIData.STATUS_POSTPONED_SHORT,footballAPIData.STATUS_SUSPENDED_SHORT,footballAPIData.STATUS_ABANDONED_SHORT).contains(responseWrapper.response[0].fixture.status.short)) {
                     // assuming game is still in progress, schedule next retrieval for a minute in the future (games update every minute)
                     scheduledTaskRepository.save(schedulerService.addNewTask(
@@ -374,6 +375,7 @@ class GameService(private val gameRepository : GameRepository,
                     logger.info("New player : ${playerWhoLeftClub} added to database since league: ${relatedGame.home.league} was added midseason after player already left club")
                 }
             }
+            println(playerFromAPI.statistics[0].penalty)
             if (firstTimeCreatingPerformances) {
                 playerPerformances.add(
                     PlayerPerformanceSoccer(
@@ -400,7 +402,7 @@ class GameService(private val gameRepository : GameRepository,
                         yellowCards = playerFromAPI.statistics[0].cards.yellow,
                         redCards = playerFromAPI.statistics[0].cards.red,
                         penaltiesDrawn = playerFromAPI.statistics[0].penalty.won,
-                        penaltiesCommitted = playerFromAPI.statistics[0].penalty.committed,
+                        penaltiesCommitted = playerFromAPI.statistics[0].penalty.commited,
                         penaltiesMissed = playerFromAPI.statistics[0].penalty.missed,
                         penaltiesSaved = playerFromAPI.statistics[0].penalty.saved,
                         penaltiesScored = playerFromAPI.statistics[0].penalty.scored,
@@ -431,7 +433,7 @@ class GameService(private val gameRepository : GameRepository,
                 relevantPlayerPerformance.yellowCards = playerFromAPI.statistics[0].cards.yellow
                 relevantPlayerPerformance.redCards = playerFromAPI.statistics[0].cards.red
                 relevantPlayerPerformance.penaltiesDrawn = playerFromAPI.statistics[0].penalty.won
-                relevantPlayerPerformance.penaltiesCommitted = playerFromAPI.statistics[0].penalty.committed
+                relevantPlayerPerformance.penaltiesCommitted = playerFromAPI.statistics[0].penalty.commited
                 relevantPlayerPerformance.penaltiesMissed = playerFromAPI.statistics[0].penalty.missed
                 relevantPlayerPerformance.penaltiesSaved = playerFromAPI.statistics[0].penalty.saved
                 relevantPlayerPerformance.cleanSheet = if (matchingPlayerFromRepo[0].teamSeason.team == relatedGame.away.team) relatedGame.homeScore == 0 else relatedGame.awayScore == 0
@@ -452,31 +454,52 @@ class GameService(private val gameRepository : GameRepository,
 
         playerPerformanceSoccerRepository.saveAll(playerPerformances)
 
-        if (relatedGame.scoresAlreadySet) { // indicates that the came is over and we can increment cummulative player stats
-            val playersToUpdate = mutableListOf<PlayerSeason>()
-            playerPerformances.forEach{
-                pp -> 
-                var markedForUpdate = false
-                if (pp.goals != null && pp.goals!! > 0) {
-                    pp.playerSeason.goals += pp.goals!!
-                    if (! markedForUpdate) {
-                        playersToUpdate.add(pp.playerSeason)
-                        markedForUpdate = true
-                    }
-                }
-                if (pp.assists != null && pp.assists!! > 0) {
-                    pp.playerSeason.assists += pp.assists!!
-                    if (! markedForUpdate) {
-                        playersToUpdate.add(pp.playerSeason)
-                        markedForUpdate = true
-                    }
+        val playersToUpdate = mutableListOf<PlayerSeason>()
+        playerPerformances.forEach{
+            pp -> 
+            var markedForUpdate = false
+            if (pp.goals != null && pp.goals!! > 0) {
+                pp.playerSeason.goals += pp.goals!!
+                if (! markedForUpdate) {
+                    playersToUpdate.add(pp.playerSeason)
+                    markedForUpdate = true
                 }
             }
-
-            // more cummulative updates here
-
-            playerSeasonRepository.saveAll(playersToUpdate)
+            if (pp.assists != null && pp.assists!! > 0) {
+                pp.playerSeason.assists += pp.assists!!
+                if (! markedForUpdate) {
+                    playersToUpdate.add(pp.playerSeason)
+                    markedForUpdate = true
+                }
+            }
+            if (pp.started != null && pp.started) {
+                pp.playerSeason.gamesStarted ++
+                if (! markedForUpdate) {
+                    playersToUpdate.add(pp.playerSeason)
+                    markedForUpdate = true
+                }
+            }
+            if (pp.minutes != null && pp.minutes!! > 0) {
+                pp.playerSeason.gamesPlayed ++
+                if (! markedForUpdate) {
+                    playersToUpdate.add(pp.playerSeason)
+                }
+            }
         }
 
+        // more cummulative updates here
+
+        playerSeasonRepository.saveAll(playersToUpdate)
+
+    }
+
+    public fun getUpcomingGamesInLeague(leagueId: String) : List<Game> {
+        if (leagueRepository.findByIdOrNull(leagueId) == null) {
+            throw Exception(LEAGUE_DOES_NOT_EXIST)
+        }
+        if (gameRepository.getAllUpcomingGamesInLeague(leagueId).size == 0) {
+            throw Exception(NO_UPCOMING_GAMES_FOR_LEAGUE)
+        }
+        return gameRepository.getAllUpcomingGamesInLeague(leagueId)
     }
 }

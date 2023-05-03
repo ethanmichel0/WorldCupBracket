@@ -12,6 +12,7 @@ data class TeamSeason(
     val season: Int,
     val league: League,
     var position: Int = -1,
+    val group: String?,
     @Id 
     val id: ObjectId = ObjectId.get()
 ) {
@@ -26,9 +27,6 @@ data class TeamSeason(
         get() = goalsForGroup - goalsAgainstGroup
     val pointsGroup: Int
         get() = 3 * winsGroup + ties
-    
-    var positionGroup: Int  = -1
-    // only used to determine first and second place for knockout rounds, -1 indicates not yet calculated
 
     var winsKnockout: Int = 0
     var lossesKnockout: Int = 0

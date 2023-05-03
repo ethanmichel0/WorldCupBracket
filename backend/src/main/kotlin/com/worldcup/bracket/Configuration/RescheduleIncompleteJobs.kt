@@ -35,6 +35,7 @@ public class RescheduleIncompleteJobs (
                     addToDB = false
                 )
             } else if (it.type == TaskType.CheckGameSchedule) {
+                /* 
                 val scheduleTask = schedulerService.addNewTask(
                     task = Runnable {
                         gameService.setLeagueGames(it.relatedEntity,it.season!!)
@@ -44,7 +45,7 @@ public class RescheduleIncompleteJobs (
                     type = TaskType.CheckGameSchedule,
                     relatedEntity = it.relatedEntity,
                     addToDB = false
-                )
+                ) */
             }
         }
     }

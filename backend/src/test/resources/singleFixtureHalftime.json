@@ -2416,8 +2416,8 @@
                                         "red": 0
                                     },
                                     "penalty": {
-                                        "won": null,
-                                        "commited": null,
+                                        "won": 1,
+                                        "commited": 1,
                                         "scored": 0,
                                         "missed": 0,
                                         "saved": null

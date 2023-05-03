@@ -1,8 +1,8 @@
-import { getBaseUrl } from '$lib/utils.js';
+import { getBaseUrlFromServer } from '$lib/utils.js';
  
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ params }) {
-    const response = await fetch(`${getBaseUrl()}/api/standings`);
+    const response = await fetch(`${getBaseUrlFromServer()}/api/standings`);
     if (!response.ok) {
         throw new Error(`Error! status: ${response.status}`);
     }

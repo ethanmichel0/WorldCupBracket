@@ -6,7 +6,6 @@ import org.springframework.data.annotation.Id
 @Document(collection="teams")
 data class Team (
     val name: String, 
-    val group: String? = null,
     @Id
     val id: String,  // will be same as Id used in football api for simplicity and hence passed in
     val logo: String? = null) {

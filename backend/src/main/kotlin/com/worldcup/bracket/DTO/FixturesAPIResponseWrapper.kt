@@ -122,7 +122,7 @@ data class CardsInfo(
 
 data class PenaltyInfo(
     val won: Int?,
-    val committed: Int?,
+    val commited: Int?,
     val scored: Int?,
     val missed: Int?,
     val saved: Int?
