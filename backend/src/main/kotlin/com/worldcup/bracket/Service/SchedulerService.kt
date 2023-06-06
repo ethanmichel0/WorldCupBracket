@@ -6,6 +6,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.Date
 
 import com.worldcup.bracket.Entity.ScheduledTask
 import com.worldcup.bracket.Entity.TaskType
@@ -22,7 +23,7 @@ class SchedulerService(private val scheduler: TaskScheduler, private val schedul
     // addToDb option should be false if we are restarting server and scheduled task was already added to db from last time server was up
     fun addNewTask(task: Runnable, startTime: Instant, repeatEvery: Duration?, type: TaskType, relatedEntity: String, addToDB: Boolean=true): ScheduledTask { // use -1 for no repeat
         val markTaskAsCompleteRunnable = Runnable {
-            val relevantTask = scheduledTaskRepository.findByRelatedEntity(relatedEntity)[0]
+            val relevantTask = scheduledTaskRepository.findByRelatedEntityAndCompleteFalse(relatedEntity)[0]
             relevantTask.complete = true
             scheduledTaskRepository.save(relevantTask)
         }
@@ -38,15 +39,17 @@ class SchedulerService(private val scheduler: TaskScheduler, private val schedul
 
         if (addToDB) {
             val scheduledTask = ScheduledTask(
-            repeat = repeatEvery,
-            startTime = startTime.getEpochSecond(),
-            type = type,
-            relatedEntity = relatedEntity
+                repeat = repeatEvery,
+                startTime = startTime.getEpochSecond(),
+                type = type,
+                relatedEntity = relatedEntity,
+                dateString = Date(startTime.getEpochSecond() * 1000).toString()
             )
+
             futures[scheduledTask.id.toString()] = scheduledTaskFuture
             return scheduledTask
         } else {
-            val scheduledTask = scheduledTaskRepository.findByRelatedEntity(relatedEntity)[0]!!
+            val scheduledTask = scheduledTaskRepository.findByRelatedEntityAndCompleteFalse(relatedEntity)[0]!!
             futures[scheduledTask.id.toString()] = scheduledTaskFuture
             return scheduledTask
         }
@@ -55,9 +58,13 @@ class SchedulerService(private val scheduler: TaskScheduler, private val schedul
     // note that task is not removed from this db in method so that if we want to remove several tasks from scheduler at once
     // we can call this method several times w/o performance issues
     fun removeTaskFromScheduler(id: String) : ScheduledTask {
+        println("scheduled task is: ${futures[id]}")
         futures[id]?.let {
+            println("this is an actual scheduled task being canceled")
             it.cancel(true)
             futures.remove(id)
+            println("After Cancel - Task is done : " + it.isDone())
+            println("After Cancel - Task is cancel : " + it.isCancelled())
             val relevantTaskDB = scheduledTaskRepository.findByIdOrNull(id)!!
             return relevantTaskDB
         }

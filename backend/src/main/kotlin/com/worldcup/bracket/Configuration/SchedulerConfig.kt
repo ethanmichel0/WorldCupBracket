@@ -23,6 +23,7 @@ public class SchedulerConfig : SchedulingConfigurer {
         scheduler.setPoolSize(SchedulerConfig.POOL_SIZE);
         scheduler.setThreadNamePrefix("ThreadSchedulerzzzz-");
         scheduler.initialize();
+        scheduler.setRemoveOnCancelPolicy(true);
         return scheduler
     }
     

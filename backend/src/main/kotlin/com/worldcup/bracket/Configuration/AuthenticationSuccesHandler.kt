@@ -13,6 +13,8 @@ import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 
+import org.bson.types.ObjectId
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -42,8 +44,12 @@ public class AuthenticationSuccessHandler : SavedRequestAwareAuthenticationSucce
         val userDetails : DefaultOidcUser = authentication.getPrincipal() as DefaultOidcUser
         response.setHeader("Authorization","Bearer " + userDetails.getIdToken().getTokenValue())
         if (userRepository.findByEmail(userDetails.getEmail()).size == 0) {
-            userRepository.save(User(userDetails.getName(), userDetails.getEmail(), AuthService.GOOGLE))
+            userRepository.save(User(
+                principalId=userDetails.getName(),
+                name=userDetails.getFullName(), 
+                email=userDetails.getEmail(), 
+                service=AuthService.GOOGLE))
         }
-        redirectStrategy.sendRedirect(request, response,"http://localhost:1234/draftgroups");
+        response.sendRedirect("http://localhost:1234/draftgroups?email=${userDetails.getEmail()}");
     }
 }

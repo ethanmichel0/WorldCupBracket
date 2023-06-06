@@ -3,7 +3,10 @@
 // and what to do when importing types
 declare namespace App {
 	 interface Locals {
-		userCookie: String | null
+		user: {
+			name: String,
+			email: String
+		}
 	 }
 	// interface PageData {}
 	// interface Platform {}

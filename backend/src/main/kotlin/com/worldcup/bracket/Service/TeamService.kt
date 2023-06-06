@@ -42,7 +42,7 @@ class TeamService(private val teamRepository : TeamRepository,
             }
 
             // add all players for beginning of season and all new transferred players after transfer breaks during the season
-            if (firstTimeAddingTeamThisSeason || playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(teamSeason.season,player.id).size == 0) {
+            if (firstTimeAddingTeamThisSeason || playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(teamSeason.season,player.id).size == 0) {
                 playersSeasonsToAddToDB.add(relevantPlayerSeason)
             }
         }

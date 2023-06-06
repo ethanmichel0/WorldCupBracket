@@ -23,30 +23,30 @@ public class RescheduleIncompleteJobs (
 ) : ApplicationRunner {
 
     override fun run (args: ApplicationArguments) {
-        
-        this.scheduledTaskRepository.findByCompleteFalse().forEach{
-            if (it.type == TaskType.GetScoresForFixture) {
-                schedulerService.addNewTask(
-                    task = Runnable {gameService.updateScores(it.relatedEntity)},
-                    startTime = Instant.ofEpochSecond(it.startTime),
-                    repeatEvery = null,
-                    type = TaskType.GetScoresForFixture,
-                    relatedEntity = it.relatedEntity,
-                    addToDB = false
-                )
-            } else if (it.type == TaskType.CheckGameSchedule) {
-                /* 
-                val scheduleTask = schedulerService.addNewTask(
-                    task = Runnable {
-                        gameService.setLeagueGames(it.relatedEntity,it.season!!)
-                        },
-                    startTime = Instant.ofEpochSecond(it.startTime),
-                    repeatEvery = Duration.ofDays(1),
-                    type = TaskType.CheckGameSchedule,
-                    relatedEntity = it.relatedEntity,
-                    addToDB = false
-                ) */
-            }
-        }
+        // /* 
+        // this.scheduledTaskRepository.findByCompleteFalse().forEach{
+        //     if (it.type == TaskType.GetScoresForFixture) {
+        //         schedulerService.addNewTask(
+        //             task = Runnable {gameService.updateScores(it.relatedEntity)},
+        //             startTime = Instant.ofEpochSecond(it.startTime),
+        //             repeatEvery = null,
+        //             type = TaskType.GetScoresForFixture,
+        //             relatedEntity = it.relatedEntity,
+        //             addToDB = false
+        //         )
+        //     } else if (it.type == TaskType.CheckGameSchedule) {
+        //         /* */
+        //         val scheduleTask = schedulerService.addNewTask(
+        //             task = Runnable {
+        //                 gameService.setLeagueGames(it.relatedEntity,it.season!!)
+        //                 },
+        //             startTime = Instant.ofEpochSecond(it.startTime),
+        //             repeatEvery = Duration.ofDays(1),
+        //             type = TaskType.CheckGameSchedule,
+        //             relatedEntity = it.relatedEntity,
+        //             addToDB = false
+        //         )
+        //     }
+        // }
     }
 }

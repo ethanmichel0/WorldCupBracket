@@ -137,10 +137,10 @@ class LeagueServiceTests {
         val allPlayersOnLeicester2022 = playerSeasonRepository.findAllPlayerSeasonsByTeamSeason(leicesterTeamSeason.id.toString())
         assertEquals(31,allPlayersOnLeicester2022.size,"there should be 31 players on Leicester's squad in 2022")
 
-        val fredericksBournemouthTeamSeason2022 = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"18815")
+        val fredericksBournemouthTeamSeason2022 = playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"18815")
         assertEquals(1,fredericksBournemouthTeamSeason2022.size,"player named R. Fredericks with id 18815 is on Bournemouth in 2022")
 
-        var ouattara = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"284797") // arrived during transfer window
+        var ouattara = playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"284797") // arrived during transfer window
         assertEquals(0,ouattara.size,"Ouattara arrived at Bournemouth during transfer window (shouldn't yet be at Bournemouth)")
         
         val scheduledCheckForGameStartTimes = scheduledTaskRepository.findByRelatedEntity("39")[0]
@@ -160,10 +160,10 @@ class LeagueServiceTests {
 
         leagueService.addNewSeasonForLeague("39",NewLeagueOptions(Sport.Soccer,false,ScheduleType.ThroughSpringOfNextYear,"2"))
 
-        ouattara = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"284797") // arrived during transfer window
+        ouattara = playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"284797") // arrived during transfer window
         assertEquals(1,ouattara.size,"Ouattara arrived at Bournemouth during transfer window")
 
-        val dennis = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"151756") // left during transfer window
+        val dennis = playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"151756") // left during transfer window
         assertEquals(true,dennis[0].playerLeftClubDuringSeason,"Dennis left Bournemouth during transfer window")
     }
 
@@ -255,7 +255,7 @@ class LeagueServiceTests {
         
         game = gameRepository.findByIdOrNull("86824099")!!
         val daka = playerPerformanceRepository.findPlayerPerformanceByPlayerAndGame("1098","86824099")[0]
-        val dakaPlayerSeason = playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(2022,"1098")[0]
+        val dakaPlayerSeason = playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"1098")[0]
         assertEquals(game.awayScore,1,"Leicester was up 1-0 at halftime")
         assertEquals(game.homeScore,0,"Bournemouth was down 1-0 at halftime")
         assertEquals(daka.goals,1,"Daka scored 1 goal for Leicester")

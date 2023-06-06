@@ -210,7 +210,7 @@ class LeagueService(
             }
 
             // add all players for beginning of season and all new transferred players after transfer breaks during the season
-            if (firstTimeAddingTeamThisSeason || playerSeasonRepository.findAllPlayerSeasonsBySeasonAndPlayer(teamSeason.season,player.id).size == 0) {
+            if (firstTimeAddingTeamThisSeason || playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(teamSeason.season,player.id).size == 0) {
                 playersSeasonsToAddToDB.add(relevantPlayerSeason)
             }
         }
@@ -234,7 +234,7 @@ class LeagueService(
     }
 
     public fun markSeasonAsOverforLeague(leagueId: String, season: Int, principal: Principal) {
-        if (! userRepository.findByName(principal.getName())[0].admin) {
+        if (! userRepository.findByPrincipalId(principal.getName())[0].admin) {
             throw Exception(NOT_PERMITTED_TO_MARK_SEASON_AS_OVER)
         }
         val teamSeasonsForLeague = mutableListOf<TeamSeason>()

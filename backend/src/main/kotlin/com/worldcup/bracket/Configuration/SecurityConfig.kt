@@ -31,7 +31,6 @@ public class SecurityConfig(private val authenticationSuccessHandler : Authentic
                     auth.antMatchers("/ws/**").authenticated()
                     auth.antMatchers("/**").permitAll()
                 }
-                .addFilterBefore(DisableHttpOnlyFilter(), SecurityContextHolderFilter::class.java)
                 .oauth2Login()
                 .successHandler(authenticationSuccessHandler)
                 //\.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())

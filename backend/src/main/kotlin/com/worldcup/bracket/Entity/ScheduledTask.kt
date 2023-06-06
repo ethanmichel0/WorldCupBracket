@@ -16,6 +16,7 @@ data class ScheduledTask (
     val relatedEntity: String,
     val season: Int? = null, // used for daily schedule check in different leagues, which may have different season (e.g. March 2023 is Premier League "2022" season as categorized in API
     // but MLS 2023 season)
+    val dateString: String? = null,
     var complete: Boolean = false)
 
 

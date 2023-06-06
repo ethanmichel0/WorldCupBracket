@@ -1,3 +1,5 @@
+import { moveSyntheticComments } from "typescript"
+
 export function getBaseUrlFromServer() {
     return (import.meta.env.PROD) ? "PRODURLWILLGOHERE" : "http://spring-boot:8080" 
 }
@@ -7,21 +9,33 @@ export function getBaseUrlFromClient() {
     // see docker-compose.yml
 }
 
-export async function isUserLoggedIn(cookies) {
-    let response = await fetch(`${getBaseUrlFromServer()}/api/draftgroups`,
+// check if user is logged in, and if so set userinfo in store if it hasn't been set yet
+export async function isUserLoggedIn(event) {
+    let response = await fetch(`${getBaseUrlFromServer()}/api/userinfo`,
     {headers:{
-        Cookie : `JSESSIONID=${cookies.get('JSESSIONID')}`
+        Cookie : `JSESSIONID=${event.cookies.get('JSESSIONID')}`
     }})
-    return response.headers.get("content-type") == "application/json"
-    // if spring boot is redirecting user to sign in, they are not currently authenticated
+    if (response.status == 403) {
+        event.locals.user = {
+            name:"",
+            email:"",
+            id:""
+        }
+        return false
+    }
+    let body = await response.json()
+    event.locals.user = {
+        name:body.name,
+        email:body.email,
+        id:body.id
+    }
+    return true
 }
 
 export function formDataToJson(formData,allMultiSelectFields) {
-    console.log("in util method w var = " + allMultiSelectFields)
     let object = {};
     formData.forEach((value, key) => {
         if (allMultiSelectFields.includes(key)) {
-            console.log(key + " is included in multiselect!")
             if (Reflect.has(object, key)) object[key].push(value)
             else object[key] = [value]
             return
@@ -29,6 +43,5 @@ export function formDataToJson(formData,allMultiSelectFields) {
         object[key] = value
       });
     let json = JSON.stringify(object);
-    console.log("complete json is: " + json)
     return json
 }

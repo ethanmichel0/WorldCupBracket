@@ -8,11 +8,12 @@ import org.bson.types.ObjectId
 
 @Document(collection="playerdrafts")
 data class PlayerDraft(
+    val userEmail: String,
+    val draftGroup: DraftGroup,
     @Id 
     val id: ObjectId = ObjectId.get(),
     val players: MutableList<PlayerSeason> = mutableListOf<PlayerSeason>(),
-    var points: Int = 0, 
-    val user: User,
-    val draftGroup: DraftGroup
+    val watchList: MutableList<PlayerSeason> = mutableListOf<PlayerSeason>(),
+    var points: Int = 0
 )
     
