@@ -2,7 +2,7 @@ package com.worldcup.bracket.DTO
 import com.worldcup.bracket.Entity.Team
 
 data class FixturesAPIResponseWrapper(
-    val response : List<FixturesWrapper>
+    val response: List<FixturesWrapper>
 )
 
 data class FixturesWrapper(
@@ -10,6 +10,7 @@ data class FixturesWrapper(
     val teams: TeamsNested,
     val goals: GoalsNested,
     val score: ScoreNested,
+    val league: LeagueInfoNested,
     val players: List<AllPlayers>?,
     val events: List<AllEvents>? 
 ) 
@@ -132,6 +133,10 @@ data class AllEvents ( // only will use to track own goals as all other events a
     val team: Team,
     val player: PlayerInfo,
     val detail: String
+)
+
+data class LeagueInfoNested (
+    val round: String
 )
 // only will be useful when "detail" is own goal representing an own goal.
 

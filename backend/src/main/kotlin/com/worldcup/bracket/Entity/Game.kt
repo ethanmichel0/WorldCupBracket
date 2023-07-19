@@ -12,11 +12,10 @@ data class Game(
     var date: Long,
     @Id 
     var fixtureId: String,
-    // var espnFixtureId: String, TODO This may be added in the future as ESPN allows certain stastistics such as goals out of box and free kicks that
-    // are not available otherwise
     var gameIdWhoScored: String? = null,
     // leveraging who scored website will allow us to get additional statistics about game that aren't available on api football such as error leading to goal and goals scored outside of box
-    var league: League) {
+    var league: League,
+    var round: String) {
         var homeScore : Int = 0
         var awayScore : Int = 0
         var currentMinute : Int = 0

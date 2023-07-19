@@ -1,9 +1,15 @@
 package com.worldcup.bracket.Service 
 
+import com.github.kittinunf.fuel.core.Method
+import com.github.kittinunf.fuel.core.Request
+import com.github.kittinunf.fuel.httpPost
+import com.github.kittinunf.fuel.httpPut
+import com.github.kittinunf.fuel.httpGet
+import com.github.kittinunf.fuel.httpDelete
+
+
 import org.springframework.stereotype.Service
 import org.springframework.data.repository.findByIdOrNull
-import kotlinx.coroutines.future.await 
-
 
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
@@ -14,6 +20,8 @@ import java.net.http.HttpResponse
 
 import com.worldcup.bracket.DTO.LeagueResponse
 import com.worldcup.bracket.DTO.NewLeagueOptions
+import com.worldcup.bracket.DTO.PlayersWrapper
+ 
 import com.worldcup.bracket.DTO.StandingsResponse
 import com.worldcup.bracket.DTO.PlayersAPIResponseWrapper
 import com.worldcup.bracket.DTO.SeasonsNested
@@ -142,14 +150,18 @@ class LeagueService(
         val allPlayerSeasons = mutableListOf<PlayerSeason>()
 
         runBlocking {
-            val allPlayersAllTeamsTeam = Pair<MutableList<Player>,MutableList<PlayerSeason>>(mutableListOf<Player>(),mutableListOf<PlayerSeason>())
+            val allPlayersByTeam = mutableListOf<Deferred<Pair<List<Player>,List<PlayerSeason>>>>()
             allRelevantTeamSeasons.forEach {
-                val allPlayersByTeam: Pair<List<Player>,List<PlayerSeason>> = async {addPlayersFromTeam(it,firstTimeAddingTeamThisSeason)}.await()
-                allPlayers.addAll(allPlayersByTeam.first)
-                allPlayerSeasons.addAll(allPlayersByTeam.second)
+                addPlayersFromTeam(it,firstTimeAddingTeamThisSeason)
             }
+            /* 
+            for ((players,playerSeasons) in allPlayersByTeam.awaitAll()) {
+                allPlayers.addAll(players)
+                allPlayerSeasons.addAll(playerSeasons)
+            } */
         }
 
+        /* 
         playerRepository.saveAll(allPlayers)
         playerSeasonRepository.saveAll(allPlayerSeasons)
         
@@ -160,7 +172,7 @@ class LeagueService(
         if (firstTimeAddingTeamThisSeason) {
             val date = GregorianCalendar();
             // date.set(Calendar.HOUR_OF_DAY, 0);
-            date.add(Calendar.MINUTE, 5);
+            date.add(Calendar.MINUTE, 1);
             // date.set(Calendar.SECOND, 0);
             // date.set(Calendar.MILLISECOND, 0);
             // date.add(Calendar.DAY_OF_MONTH, 1);
@@ -168,7 +180,7 @@ class LeagueService(
             val scheduleTask = schedulerService.addNewTask(
                 task = Runnable {
                     gameService.setLeagueGames(leagueId,latestSeason)
-                },
+                    },
                 startTime = date.toInstant(),
                 repeatEvery = Duration.ofDays(1),
                 type = TaskType.CheckGameSchedule,
@@ -176,17 +188,18 @@ class LeagueService(
             )
 
             scheduledTaskRepository.save(scheduleTask)
-        }
+        } */
     }
 
 
     private suspend fun addPlayersFromTeam(teamSeason: TeamSeason, firstTimeAddingTeamThisSeason: Boolean) : Pair<List<Player>,List<PlayerSeason>> {
-        val playersRequest = BuildNewRequest(footballAPIData.getAllPlayersOnTeamEndpoint(teamSeason.team.id),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
-        val playersResponse = httpClient.sendAsync(playersRequest, HttpResponse.BodyHandlers.ofString());
-        val playersResponseWrapper : PlayersAPIResponseWrapper = Gson().fromJson(playersResponse.await().body(), PlayersAPIResponseWrapper::class.java)
+        val hostHeaderPair = Pair("x-rapidapi-host",footballAPIData.X_RAPID_API_HOST)
+        val apikeyHeaderPair = Pair("x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
+        val (request, response, result) = footballAPIData.getStandingsEndpoint("1",2022).httpGet().awaitStringResponse()
+        val playersResponseWrapper = Gson().fromJson(result.body().asString("application/json"), PlayersAPIResponseWrapper::class.java)
         
         if (playersResponseWrapper.response.size == 0) {
-            println("this will throw an error down below!!")
+            println("response is: $playersResponseWrapper for team: ${teamSeason.team.name} with id: ${teamSeason.team.id}")
         }
         val playersToAddToDB = mutableListOf<Player>()
         val playersSeasonsToAddToDB = mutableListOf<PlayerSeason>()
@@ -219,15 +232,14 @@ class LeagueService(
         // this can be done by checking all player ids of current squad from api and comparing against those in data base to confirm players are still playing for club
         
         if (!firstTimeAddingTeamThisSeason) {
-            val allCurrentPlayerIds : List<String> = playersResponseWrapper.response[0].players.map{it.id}
+            val allCurrentPlayers : List<PlayersWrapper> = playersResponseWrapper.response[0].players
+            val allCurrentPlayerIds = allCurrentPlayers.map{it.id}
             playerSeasonRepository.findAllPlayerSeasonsByTeamSeason(teamSeason.id.toString()).filter{! allCurrentPlayerIds.contains(it.player.id) }.
                 forEach{
                     it.playerLeftClubDuringSeason = true
                     playersSeasonsToAddToDB.add(it)
                 }
         }
-        println("playersToAddToDB length: ${playersToAddToDB.size}")
-        println("playersSeasonsToAddToDB length: ${playersSeasonsToAddToDB.size}")
         return Pair(playersToAddToDB,playersSeasonsToAddToDB)
     }
 

@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.server.ResponseStatusException
+
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
@@ -17,6 +19,8 @@ import com.worldcup.bracket.DTO.DraftGroupWithMemberInformation
 import com.worldcup.bracket.DTO.NewDraftGroup
 import com.worldcup.bracket.DTO.SetDraftTime
 import com.worldcup.bracket.DTO.DraftGroupInfoDuringDraft
+import com.worldcup.bracket.DTO.TradeOffer
+import com.worldcup.bracket.DTO.UpdatedWatchList
 import com.worldcup.bracket.Service.DraftGroupService
 import com.worldcup.bracket.Entity.DraftGroup
 import com.worldcup.bracket.Entity.PlayerSeason
@@ -38,13 +42,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
 
     @GetMapping("/api/draftgroups")
     fun getAllDraftGroupsForUser(principal: Principal) : ResponseEntity<List<DraftGroup>> {
-        println("trying get all draft groups for user!")
         try {
             val result = draftGroupService.getAllDraftGroupsForUser(principal)
-            println("resulut is $result")
             return ResponseEntity.status(HttpStatus.OK).body(result)
         } catch (e: Exception) {
-            println("${e}")
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
@@ -54,28 +55,22 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         try {
             return ResponseEntity.status(HttpStatus.OK).body(draftGroupService.getDraftGroupInfoDuringDraft(groupName,principal))
         } catch (e: Exception) {
-            if (e.message == DraftGroupService.DRAFT_NOT_SCHEDULED)
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null)
-            if (e.message == DraftGroupService.GROUP_DNE)
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
-            if (e.message == DraftGroupService.MUST_BE_MEMBER)
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null)
-            println(e.message + "IS ERROR MESSAGE")
-            throw(e)
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(DraftGroupInfoDuringDraft(error=e.getReason()))
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
 
     @GetMapping("/api/draftgroups/{draftGroupName}")
     fun getSpecificDraftGroup(@PathVariable draftGroupName : String, principal: Principal) : ResponseEntity<DraftGroupWithMemberInformation> {
-        println("IN GET SPECIFIC DRAFAT GROUP!!")
         try {
             val group = draftGroupService.getSpecificDraftGroup(draftGroupName,principal)
             return ResponseEntity.status(HttpStatus.OK).body(group)
         } catch (e: Exception) {
-            if (e.message == DraftGroupService.GROUP_DNE) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
-            println("error is: ${e}")
-            println("stacktrace is: ${e.getStackTrace()}")
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(DraftGroupWithMemberInformation(error=e.getReason()))
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
@@ -86,11 +81,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
             draftGroupService.saveNewDraftGroup(body,principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
         } catch (e: Exception) {
-            if (e.message == DraftGroupService.GROUP_ALREADY_EXISTS) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
-            }
-            println("${e.stackTraceToString()} + IS MESSAGE")
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
 
@@ -100,16 +94,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
             draftGroupService.scheduleDraftGroup(draftGroupName,time,principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
         } catch (e: Exception) {
-            if (e.message == DraftGroupService.GROUP_DNE)
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.message)
-            if (e.message == DraftGroupService.NOT_PERMITTED)
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
-            if (e.message == DraftGroupService.NOT_ENOUGH_MEMBERS)
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
-            if (e.message == DraftGroupService.TIME_NOT_VALID)
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
 
@@ -119,18 +107,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
             draftGroupService.joinDraftGroup(requestBody,principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
         } catch (e: Exception) {
-            if (e.message == DraftGroupService.GROUP_DNE)
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.message)
-            if (e.message == DraftGroupService.INVALID_PW)
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
-            if (e.message == DraftGroupService.ALREADY_IN_GROUP)
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
-            if (e.message == DraftGroupService.GROUP_FULL)
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.message)
-            
-            // TODO Fix these status codes for last two exceptions
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
 
@@ -140,8 +120,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
             draftGroupService.removeUserFromDraftGroup(draftGroupName,userId,principal)
             return ResponseEntity.status(HttpStatus.OK).body("")
         } catch (e: Exception) {
-            if (e.message == DraftGroupService.NOT_PERMITTED) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
 
@@ -151,37 +133,101 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
             draftGroupService.removeDraftGroup(draftGroupName, principal)
             return ResponseEntity.status(HttpStatus.OK).body(null)
         } catch (e: Exception) {
-            if (e.message == DraftGroupService.NOT_PERMITTED) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.message)
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.message)
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
-/* 
-    @PutMapping("/api/draftgroups/{draftGroupName}/addToWatchList/{playerId}")
-    fun addPlayerToWatchList(@PathVariable draftGroupName: String, @PathVariable playerId: String, principal: Principal) : ResponseEntity<PlayerSeason> {
+    
+    @PostMapping("/api/draftgroups/{draftGroupName}/addToWatchList/{playerId}")
+    fun addToWatchList(@PathVariable draftGroupName: String, @PathVariable playerId: String, principal: Principal) : ResponseEntity<String> {
         try {
-            draftGroupService.addPlayerToWatchList(draftGroupName, playerId, principal)
-        } catch (e : Exception) {
-            // TODO
+            println("in addToWatchList in controller")
+            draftGroupService.addToWatchList(draftGroupName, playerId, principal)
+            return ResponseEntity.status(HttpStatus.OK).body(null)
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
     }
 
-    @DeleteMapping("/api/draftgroups/{draftGroupName}/addToWatchList/{playerId}")
-    fun removePlayerFromWatchList(@PathVariable draftGroupName : String, @PathVariable playerId: String, principal: Principal) : ResponseEntity<PlayerSeason> {
+    @DeleteMapping("/api/draftgroups/{draftGroupName}/removeFromWatchList/{playerId}")
+    fun removeFromWatchList(@PathVariable draftGroupName: String, @PathVariable playerId: String, principal: Principal) : ResponseEntity<String> {
         try {
-            draftGroupService.removePlayerFromWatchList(draftGroupName, playerId, principal)
+            draftGroupService.removeFromWatchList(draftGroupName, playerId, principal)
+            return ResponseEntity.status(HttpStatus.OK).body(null)
         } catch (e: Exception) {
-            // TODO
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
         }
-    } */
+    }
+
+    @PutMapping("/api/draftgroups/{draftGroupName}/reorderWatchList")
+    fun reorderWatchList(@PathVariable draftGroupName: String, @RequestBody updatedWatchList: UpdatedWatchList, principal: Principal) : ResponseEntity<String> {
+        try {
+            draftGroupService.reorderWatchList(draftGroupName, updatedWatchList, principal)
+            return ResponseEntity.status(HttpStatus.OK).body(null)
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
 
     @MessageMapping("/api/draftgroups/{draftGroupName}/draftplayer/{playerId}")
     @SendTo("/topic/draft/{draftGroupName}")
-    fun draftPlayerForUser(@DestinationVariable draftGroupName: String, @DestinationVariable playerId: String, principal: Principal) : DraftGroupInfoDuringDraft {
-        println("in draftplayerfor user method")
+    fun draftSpecificPlayerForUser(@DestinationVariable draftGroupName: String, @DestinationVariable playerId: String, principal: Principal) : DraftGroupInfoDuringDraft {
+        println("in draftplayerfor user method and playerId is: ${playerId}")
         try {
-            return draftGroupService.draftPlayerForUser(draftGroupName,playerId,principal)
+            return draftGroupService.draftSpecificPlayerForUser(draftGroupName,playerId,principal)
         } catch (e: Exception) {
             throw e;
         }
-    } 
+    }
+
+    
+    @PostMapping("/api/draftgroups/offerTrade")
+    fun offerTrade(tradeOffer: TradeOffer, principal: Principal) : ResponseEntity<String> {
+        try {
+            draftGroupService.offerTrade(tradeOffer, principal)
+            return ResponseEntity.status(HttpStatus.OK).body(null)
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
+
+    @PostMapping("/api/draftgroups/respondToTradeOffer/{tradeOfferId}")
+    fun respondToTradeOffer(response: String, @PathVariable tradeOfferId: String, principal: Principal) : ResponseEntity<String> {
+        try {
+            draftGroupService.respondToTradeOffer(response, tradeOfferId, principal)
+            return ResponseEntity.status(HttpStatus.OK).body(null)
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
+
+    @DeleteMapping("/api/draftgroups/{tradeOfferId}")
+    fun deleteTradeOffer(@PathVariable tradeOfferId: String, principal: Principal) : ResponseEntity<String> {
+        try {
+            draftGroupService.deleteTradeOffer(tradeOfferId, principal)
+            return ResponseEntity.status(HttpStatus.OK).body(null)
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
 }

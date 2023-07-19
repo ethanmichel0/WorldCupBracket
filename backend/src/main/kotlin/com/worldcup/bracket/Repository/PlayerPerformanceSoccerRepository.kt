@@ -1,5 +1,7 @@
 package com.worldcup.bracket.Repository
 
+import org.bson.types.ObjectId
+
 import org.springframework.data.mongodb.repository.MongoRepository
 import com.worldcup.bracket.Entity.PlayerPerformanceSoccer
 import org.springframework.stereotype.Repository;
@@ -14,4 +16,6 @@ interface PlayerPerformanceSoccerRepository : MongoRepository<PlayerPerformanceS
 
     @Query(value = "{'playerSeason.player.id' : ?0, 'playerSeason.teamSeason.current': true}")
     fun findAllPlayerPerformancesByPlayerDuringCurrentSeason(playerId: String) : List<PlayerPerformanceSoccer>
+
+    fun findByIdIn(ids: List<ObjectId>) : List<PlayerPerformanceSoccer>
 }

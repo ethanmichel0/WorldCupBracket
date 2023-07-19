@@ -12,4 +12,6 @@ interface PlayerDraftRepository : MongoRepository<PlayerDraft,String>{
     fun findAllPlayerDraftsByGroup(draftGroupName: String) : List<PlayerDraft> 
     @Query(value = "{'draftGroup.name' : ?0, 'userEmail' : ?1}")
     fun findPlayerDraftByGroupAndUserEmail(draftGroupName: String, userEmail: String) : List<PlayerDraft> 
+    @Query(value = "{'watchListUndrafted.player.id' : ?0}")
+    fun findAllPlayerDraftsWithPlayerOnWatchList(playerId: String) : List<PlayerDraft>
 }

@@ -16,9 +16,7 @@ data class League(
     val playoffs: Boolean,
     val logo: String,
     val scheduleType: ScheduleType,
-    val leagueIdWhoScored: String,
-    val lastDateToDraft: Long? = null
-) {
+    val leagueIdWhoScored: String) {
 }
 
 enum class Sport {

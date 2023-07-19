@@ -43,11 +43,4 @@ class GameController(
     fun getAllInfoForGame(@PathVariable fixtureId: String) : Game {
         return gameRepository.findByIdOrNull(fixtureId)!!
     }
-
-    @MessageMapping("/api/games/testwebsocket")
-    @SendTo("/topic/greetings")
-    fun greet(@Payload message: String) : String {
-        println("greet function hit!")
-        return "Hello, ${message}! How are you?"
-    }
 }

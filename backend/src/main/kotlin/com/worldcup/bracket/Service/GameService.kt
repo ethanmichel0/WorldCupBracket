@@ -1,7 +1,17 @@
 package com.worldcup.bracket.Service 
 
+import org.bson.types.ObjectId
+
 import org.springframework.stereotype.Service
 import org.springframework.data.repository.findByIdOrNull
+
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.mongodb.core.BulkOperations
+import org.springframework.data.mongodb.core.MongoTemplate
+
+import org.jetbrains.annotations.Nullable
 
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -24,6 +34,7 @@ import com.worldcup.bracket.DTO.StandingsResponse
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Repository.TeamSeasonRepository
 import com.worldcup.bracket.Repository.LeagueRepository
+import com.worldcup.bracket.Repository.PlayerDraftRepository
 import com.worldcup.bracket.Repository.PlayerRepository
 import com.worldcup.bracket.Repository.PlayerPerformanceSoccerRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
@@ -33,6 +44,7 @@ import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.TeamSeason
 import com.worldcup.bracket.Entity.Player
+import com.worldcup.bracket.Entity.PlayerDraft
 import com.worldcup.bracket.Entity.PlayerPerformanceSoccer
 import com.worldcup.bracket.Entity.PlayerSeason
 import com.worldcup.bracket.Entity.TaskType
@@ -52,9 +64,11 @@ class GameService(private val gameRepository : GameRepository,
     private val playerPerformanceSoccerRepository : PlayerPerformanceSoccerRepository,
     private val playerSeasonRepository : PlayerSeasonRepository,
     private val playerRepository : PlayerRepository,
+    private val playerDraftRepository : PlayerDraftRepository,
     private val scheduledTaskRepository : ScheduledTaskRepository,
     private val schedulerService : SchedulerService,
-    private val footballAPIData : GetFootballDataEndpoints) {
+    private val footballAPIData : GetFootballDataEndpoints,
+    private val mongoTemplate : MongoTemplate) {
 
     private val logger : Logger = LoggerFactory.getLogger(javaClass)
 
@@ -112,8 +126,6 @@ class GameService(private val gameRepository : GameRepository,
             val gamesForSeason = mutableListOf<Game>()
             val allScheduledFixtureRetrievalTasks = mutableListOf<ScheduledTask>()
             
-            val currentHomeTeam: TeamSeason? = null
-
             for (game in allFixturesResponseWrapper.response) {
                 val relevantHomeTeam = allTeamsInLeague.filter{it.team == game.teams.home}[0]
                 val relevantAwayTeam = allTeamsInLeague.filter{it.team == game.teams.away}[0]
@@ -124,6 +136,7 @@ class GameService(private val gameRepository : GameRepository,
                     date=game.fixture.timestamp,
                     fixtureId=game.fixture.id,
                     league=relevantLeagueFromDB,
+                    round=game.league.round,
                     gameIdWhoScored=whoScoredMatchIdByHomeAndAwayIdsWhoScored[Pair(relevantHomeTeam.team.teamIdWhoScored,relevantAwayTeam.team.teamIdWhoScored)]
                 ))
 
@@ -160,7 +173,8 @@ class GameService(private val gameRepository : GameRepository,
                     knockoutGame=false,
                     date=game.fixture.timestamp,
                     fixtureId=game.fixture.id,
-                    league=relevantLeagueFromDB)
+                    league=relevantLeagueFromDB,
+                    round="${relevantLeagueFromDB.name} ${game.league.round}")
 
                 if (game.fixture.status.short == footballAPIData.STATUS_POSTPONED_SHORT) {
                     postponedGames.add(relevantGame)
@@ -195,11 +209,10 @@ class GameService(private val gameRepository : GameRepository,
     }
 
     public fun updateScores(fixtureId : String) {
-        println("fixturez IS ${fixtureId}")
         val request = BuildNewRequest(footballAPIData.getSingleFixtureEndpoint(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
-        if (responseWrapper.response == null || responseWrapper.response.size == 0) println("${response.body()} is the response body for null game")
+        if (responseWrapper.response.size == 0) println("${response.body()} is the response body for null game")
         val game : Game? = gameRepository.findByIdOrNull(responseWrapper.response[0].fixture.id)
 
         if (game != null) {
@@ -214,19 +227,17 @@ class GameService(private val gameRepository : GameRepository,
                 println("who scored events is: ${whoScoredEvents}")
                 val goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer: MutableMap<String,MutableList<Int>> = HashMap()
                 for (event in whoScoredEvents.matchCentreData.events) {
-                    if (event.playerId != null) {
-                        var playerGoalsOutsideBoxAndErrors = goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer.get(whoScoredEvents.matchCentreData.playerIdNameDictionary.get(event.playerId))
-                        if (playerGoalsOutsideBoxAndErrors == null) {
-                            val playerName: String = whoScoredEvents.matchCentreData.playerIdNameDictionary[event.playerId]!!
-                            goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer[playerName] = mutableListOf<Int>(0,0)
-                            playerGoalsOutsideBoxAndErrors = goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer[playerName]
-                        }
-                        if (event.qualifiers.filter{footballAPIData.WHO_SCORED_OUT_OF_BOX in it.type.displayName}.size>0 && event.type.displayName == footballAPIData.WHO_SCORED_EVENT_TYPE_GOAL) {
-                            playerGoalsOutsideBoxAndErrors!![0] ++
-                        }
-                        if (event.qualifiers.filter{it.type.displayName==footballAPIData.WHO_SCORED_ERROR_LEADING_TO_GOAL}.size>0 && event.type.displayName == footballAPIData.WHO_SCORED_EVENT_TYPE_ERROR) {
-                            playerGoalsOutsideBoxAndErrors!![1] ++
-                        }
+                    var playerGoalsOutsideBoxAndErrors = goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer.get(whoScoredEvents.matchCentreData.playerIdNameDictionary.get(event.playerId))
+                    if (playerGoalsOutsideBoxAndErrors == null) {
+                        val playerName: String = whoScoredEvents.matchCentreData.playerIdNameDictionary[event.playerId]!!
+                        goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer[playerName] = mutableListOf<Int>(0,0)
+                        playerGoalsOutsideBoxAndErrors = goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer[playerName]
+                    }
+                    if (event.qualifiers.filter{footballAPIData.WHO_SCORED_OUT_OF_BOX in it.type.displayName}.size>0 && event.type.displayName == footballAPIData.WHO_SCORED_EVENT_TYPE_GOAL) {
+                        playerGoalsOutsideBoxAndErrors!![0] ++
+                    }
+                    if (event.qualifiers.filter{it.type.displayName==footballAPIData.WHO_SCORED_ERROR_LEADING_TO_GOAL}.size>0 && event.type.displayName == footballAPIData.WHO_SCORED_EVENT_TYPE_ERROR) {
+                        playerGoalsOutsideBoxAndErrors!![1] ++
                     }
                 }
 
@@ -287,7 +298,6 @@ class GameService(private val gameRepository : GameRepository,
                     val requestStandings = BuildNewRequest(footballAPIData.getStandingsEndpoint(game.home.league.id,game.home.season),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
                     val responseStandings = httpClient.send(requestStandings, HttpResponse.BodyHandlers.ofString())
                     val responseWrapperStandings : StandingsResponse = Gson().fromJson(responseStandings.body(), StandingsResponse::class.java)
-                    println("${responseWrapperStandings.response[0].league.standings} is standings")
                     for (group in responseWrapperStandings.response[0].league.standings) {
                         for (team in group) {
                             val matchingTeamSeason = teamSeasons.filter{it.team.name==team.team.name}[0]
@@ -347,7 +357,6 @@ class GameService(private val gameRepository : GameRepository,
                     val playerInfoWrapper : PlayerInfoSinglePlayerRequest = Gson().fromJson(playerInfoResponse.body(), PlayerInfoSinglePlayerRequest::class.java)
 
                     if (playerInfoWrapper.response.size==0 || playerInfoWrapper.response[0].statistics.size < 2)  {
-                        println("ISSUES WITH PLAYER: ${playerFromAPI} who has response: ${playerInfoWrapper}")
                         return@forEach
                     }
                     val playerWhoLeftClub = if (playerRepository.findByIdOrNull(playerFromAPI.player.id) != null) playerRepository.findByIdOrNull(playerFromAPI.player.id)!! else
@@ -375,7 +384,6 @@ class GameService(private val gameRepository : GameRepository,
                     logger.info("New player : ${playerWhoLeftClub} added to database since league: ${relatedGame.home.league} was added midseason after player already left club")
                 }
             }
-            println(playerFromAPI.statistics[0].penalty)
             if (firstTimeCreatingPerformances) {
                 playerPerformances.add(
                     PlayerPerformanceSoccer(
@@ -442,6 +450,8 @@ class GameService(private val gameRepository : GameRepository,
             }
         }
 
+        bulkUpdateAllPlayerDraftsWithPlayerPerformances(playerPerformances)
+
         allEvents
             .forEach{event ->
                 // the api marks own goals as an event but not under each player as an individual statistic.
@@ -490,7 +500,28 @@ class GameService(private val gameRepository : GameRepository,
         // more cummulative updates here
 
         playerSeasonRepository.saveAll(playersToUpdate)
+    }
 
+    private fun bulkUpdateAllPlayerDraftsWithPlayerPerformances(playerPerformances: List<PlayerPerformanceSoccer>) {
+        val amountOfPointsBeforeLastUpdate : Map<ObjectId,Int> = playerPerformanceSoccerRepository.findByIdIn(playerPerformances.map{it.id}).associateBy({it.id},{it.points})
+        // we only want to add the delta of points since the player received since the last update
+
+        // TODO test the efficiency of using mongodb's updateMany() api vs bulkWrite api. I think this should be efficient enough, but we may have to do some efficiency testing here
+        
+        val bulkUpdates = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, "playerdrafts");
+        for (pp in playerPerformances) {
+            val amountOfPointsSinceLastUpdateDelta = if (amountOfPointsBeforeLastUpdate.get(pp.id) == null) pp.points else (pp.points - amountOfPointsBeforeLastUpdate.get(pp.id)!!)
+            val forwardsCriteria = Criteria.where("draftedForwards").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
+            val midsCriteria = Criteria.where("draftedMidfielders").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
+            val defendersCriteria = Criteria.where("draftedDefenders").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
+            val goalkeepersCriteria = Criteria.where("draftedGoalkeepers").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
+            val anyPositionCriteriaAndCurrentSeason = Criteria().andOperator(Criteria().orOperator(forwardsCriteria,midsCriteria,defendersCriteria,goalkeepersCriteria),
+                Criteria.where("draftGroup.current").`is`(true))
+            val relevantDrafts = mongoTemplate.find(Query().addCriteria(anyPositionCriteriaAndCurrentSeason),PlayerDraft::class.java,"playerdrafts")
+            val incrementTotalRoundScore = Update().inc("pointsByRound.${pp.game.round}",amountOfPointsSinceLastUpdateDelta)
+            bulkUpdates.updateMulti(Query().addCriteria(anyPositionCriteriaAndCurrentSeason),incrementTotalRoundScore)
+        }
+        val results = bulkUpdates.execute()
     }
 
     public fun getUpcomingGamesInLeague(leagueId: String) : List<Game> {

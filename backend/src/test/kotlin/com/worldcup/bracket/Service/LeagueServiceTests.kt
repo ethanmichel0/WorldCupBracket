@@ -12,15 +12,23 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.data.mongo.AutoConfigureDataMongo
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ContextConfiguration
+import org.springframework.http.MediaType
 
 import com.worldcup.bracket.DTO.NewLeagueOptions
+import com.worldcup.bracket.DTO.NewDraftGroup
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.TeamSeason
 import com.worldcup.bracket.Entity.Game
 import com.worldcup.bracket.Entity.Sport
+import com.worldcup.bracket.Entity.User
+import com.worldcup.bracket.Entity.AuthService
+import com.worldcup.bracket.Entity.DraftGroup
+import com.worldcup.bracket.Entity.PlayerDraft
 import com.worldcup.bracket.Entity.ScheduleType
 import com.worldcup.bracket.GetFootballDataEndpoints
 import com.worldcup.bracket.WireMockUtility
+import com.worldcup.bracket.Repository.DraftGroupRepository
+import com.worldcup.bracket.Repository.PlayerDraftRepository
 import com.worldcup.bracket.Repository.PlayerRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
 import com.worldcup.bracket.Repository.TeamSeasonRepository
@@ -28,14 +36,21 @@ import com.worldcup.bracket.Repository.LeagueRepository
 import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.GameRepository
 import com.worldcup.bracket.Repository.ScheduledTaskRepository
+import com.worldcup.bracket.Repository.UserRepository
 import com.worldcup.bracket.Repository.PlayerPerformanceSoccerRepository
+
+import com.google.gson.Gson
 
 import org.junit.jupiter.api.TestMethodOrder
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.Order;
 
 import org.springframework.data.repository.findByIdOrNull
+import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 
+import java.security.Principal
+import javax.security.auth.Subject
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -58,6 +73,9 @@ class LeagueServiceTests {
 
     @Autowired 
     private lateinit var gameService: GameService
+
+    @Autowired 
+    private lateinit var draftGroupService: DraftGroupService
 
     @Autowired 
     private lateinit var schedulerService: SchedulerService
@@ -84,7 +102,16 @@ class LeagueServiceTests {
     private lateinit var scheduledTaskRepository: ScheduledTaskRepository
 
     @Autowired
+    private lateinit var userRepository: UserRepository
+
+    @Autowired
+    private lateinit var draftGroupRepository: DraftGroupRepository
+
+    @Autowired
     private lateinit var playerPerformanceRepository: PlayerPerformanceSoccerRepository
+
+    @Autowired
+    private lateinit var playerDraftRepository: PlayerDraftRepository
 
     @Test
     @Order(1)
@@ -169,6 +196,61 @@ class LeagueServiceTests {
 
     @Test
     @Order(2)
+    fun `new draft group`() {
+        // because drafting has timers involved and websockets, this testing was carried out manually for the most part
+        // the part we will integration test is whether players obtain points for the players that they have drafted on their teams
+        val bob = User(
+            principalId="testpid",
+            name="Bob",
+            email="bob@gmail.com",
+            service=AuthService.GOOGLE
+        )
+        val billy = User(
+            principalId="testpid2",
+            name="Billy",
+            email="billy@gmail.com",
+            service=AuthService.GOOGLE
+        )
+        userRepository.saveAll(listOf<User>(bob,billy))
+
+        var prem = leagueRepository.findAll()[0]
+        leagueRepository.save(prem)
+        draftGroupService.saveNewDraftGroup(
+            NewDraftGroup(
+                name="testDraftGroupzz",
+                password="password"
+            ),
+            BobPrincipal()
+        )
+
+        draftGroupService.joinDraftGroup(NewDraftGroup(name="testDraftGroupzz",password="password"),BillyPrincipal())
+        val draftGroup = draftGroupRepository.findAll()[0]
+        assertEquals(2,draftGroup.members.size,"after billy joined there should be two draft group members")
+
+        // we will simulate a draft without actually calling the draft service, as we don't want to worry about scheduled tasks every
+        // minute for auto draft. Note that this functionality was tested manually.
+        
+        // normally playerDrafts objects are created after the draft time is set, but because we don't want to set draft time since we are avoiding
+        // scheduled services, we will manually create them
+        playerDraftRepository.saveAll(
+            listOf<PlayerDraft>(PlayerDraft(
+                userEmail="bob@gmail.com",
+                draftGroup=draftGroup
+            ),PlayerDraft(
+                userEmail="billy@gmail.com",
+                draftGroup=draftGroup
+            )
+        ))
+        val bobPlayerDraft = playerDraftRepository.findPlayerDraftByGroupAndUserEmail("testDraftGroupzz","bob@gmail.com")[0]
+
+        bobPlayerDraft.draftedForwards.add(playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"1098")[0])
+        bobPlayerDraft.draftedForwards.add(playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"18883")[0])
+
+        playerDraftRepository.save(bobPlayerDraft)
+    } 
+
+    @Test
+    @Order(3)
     fun `game postponed mid season`() {
         val allFixturesInLeagueEndpoint = footballAPIData.getAllFixturesInSeasonEndpoint("39",2022)
         val apiResponseAllFixturesInLeagueEndpointFileName = "allFixturesPremierLeague2022.json"
@@ -229,7 +311,7 @@ class LeagueServiceTests {
     } 
 
     @Test
-    @Order(3)
+    @Order(4)
     fun `get fixture at halftime`() {
         var game = gameRepository.findByIdOrNull("86824099")!!
 
@@ -267,7 +349,7 @@ class LeagueServiceTests {
    }
 
     @Test
-    @Order(4)
+    @Order(5)
     fun `get fixture after game finished`() {
         val singleFixtureEndpointUrl = footballAPIData.getSingleFixtureEndpoint("86824099")
         val apiResponseSingleFixtureEndpointFilename = "singleFixtureFulltime.json"
@@ -298,6 +380,16 @@ class LeagueServiceTests {
         assertEquals(leicesterTeamSeason.position,2,"Bouremouth is ahead of leicester since they won when they playeded")
 
     }
+
+    @Test
+    @Order(6)
+    fun `check points on player drafts`() {
+        val bobPlayerDraft = playerDraftRepository.findPlayerDraftByGroupAndUserEmail("testDraftGroupzz","bob@gmail.com")[0]
+        // TODO this will change as the points system is updated
+        // assertEquals(2,bobPlayerDraft.draftedForwards.size,"Bob drafted 2 forwards")
+        //assertEquals(2,bobPlayerDraft.performancesByRound.get("Premier League Regular Season - 30")!!.size,"2 performacnes")
+        assertEquals(3,bobPlayerDraft.pointsByRound.get("Premier League Regular Season - 30"),"Bob gets a point for the Daka scoring, and Solanke assisting")
+   }
         
     @AfterAll
     fun `delete data before running next test`() {
@@ -308,7 +400,19 @@ class LeagueServiceTests {
         scheduledTaskRepository.deleteAll()
         leagueRepository.deleteAll()
         gameRepository.deleteAll()
+        userRepository.deleteAll()
+        draftGroupRepository.deleteAll()
+        playerDraftRepository.deleteAll()
     }
 }
 
+class BillyPrincipal : Principal {
+    override fun getName(): String = "testpid2"
+    override fun implies(subject: Subject) = true
+}
+
+class BobPrincipal : Principal {
+    override fun getName(): String = "testpid"
+    override fun implies(subject: Subject) = true
+}
 

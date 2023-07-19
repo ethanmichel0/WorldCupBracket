@@ -24,4 +24,6 @@ interface PlayerSeasonRepository : MongoRepository<PlayerSeason,String> {
 
     @Query(value = "{'teamSeason.current' : true, 'teamSeason.team.id' : ?0}")
     fun findAllPlayerSeasonsForTeamCurrentlyActive(teamId: String) : List<PlayerSeason>
+
+    fun findByIdIn(playerSeasons: List<String>) : List<PlayerSeason>
 }

@@ -1,10 +1,8 @@
 <script>
 	import { onMount } from 'svelte';
-    import {Table, Button} from 'sveltestrap'
+    import {Table, Button, TabContent, TabPane, Input, Form} from 'sveltestrap'
     import {over} from "stompjs"
     import SockJS from "sockjs-client/dist/sockjs"
-    import { enhance } from '$app/forms';
-
 
     /** @type {import('$types').PageData} */
     export let data;
@@ -17,7 +15,9 @@
 
     $: turnsUntilMine = (myIndex >= userCurrentTurnIndex) ? myIndex - userCurrentTurnIndex: data.draftRoomInfo.draftGroup.members.length - userCurrentTurnIndex + myIndex
     $: draftLive = days <= 0 && hours <= 0 && minutes <=0
-
+    let allPlayersMatchingCriteria = []
+    $: allPlayersEveryPosition = data.draftRoomInfo.draftGroup.availableForwards.concat(data.draftRoomInfo.draftGroup.availableMidfielders,data.draftRoomInfo.draftGroup.availableDefenders,data.draftRoomInfo.draftGroup.availableGoalkeepers)
+    $: allTeamNames = [...new Set(allPlayersEveryPosition.map(playerSeason => playerSeason.teamSeason.team.name))]
     onMount(async() => {
         console.log("IN LOAD")
         let sockJS = new SockJS('http://localhost:6868/ws')
@@ -41,8 +41,37 @@
         }
     })
 
-    function draftPlayer(playerId) {
-        client.send(`/app/api/draftgroups/${data.groupName}/draftplayer/${playerId}`,{},"")
+    function draftPlayer(playerSeason) {
+        client.send(`/app/api/draftgroups/${data.groupName}/draftplayer/${playerSeason.player.id}`,{},"")
+        
+        switch (playerSeason.position) {
+            case 'Attacker':
+                data.draftRoomInfo.availableForwards = data.draftRoomInfo.availableForwards.filter(forward => forward.player.id != playerSeason.player.id)
+                break;
+            case 'Midfielder':
+                data.draftRoomInfo.availableMidfielders = data.draftRoomInfo.availableMidfielders.filter(midfielder => midfielder.player.id != playerSeason.player.id)
+                break;
+            case 'Defender':
+                data.draftRoomInfo.availableDefenders = data.draftRoomInfo.availableDefenders.filter(defender => defender.player.id != playerSeason.player.id)
+                break;
+            default:
+                data.draftRoomInfo.availableGoalkeepers = data.draftRoomInfo.availableGoalkeepers.filter(goalkeeper => goalkeeper.player.id != playerSeason.player.id)
+        }
+    }
+
+    function searchByTeam(event) {
+        let teamName = event.target.value
+        allPlayersMatchingCriteria = allPlayersEveryPosition.filter(playerSeason => playerSeason.teamSeason.team.name == teamName)
+    }
+
+    function searchByPosition(event) {
+        let position = event.target.value
+        allPlayersMatchingCriteria = allPlayersEveryPosition.filter(playerSeason => playerSeason.position == position)
+    }
+
+    function searchByName(event) {
+        let nameLowerCased = event.target.value.toLowerCase()
+        allPlayersMatchingCriteria = allPlayersEveryPosition.filter(playerSeason => playerSeason.player.name.toLowerCase().includes(nameLowerCased))
     }
 
     // Set the date we're counting down to
@@ -69,6 +98,7 @@
             clearInterval(x);
         }
     }, 1000);
+
 </script>
 
 {#if days >= 0 && hours >=0 && minutes >= 0 && seconds >=0}
@@ -84,7 +114,35 @@
     <p>Last selected player is: {playerSelected}</p>
 {/if}
 
-<h1>All Available Players</h1>
+<TabContent>
+    <TabPane tabId="team" tab="Team" active>
+      <h2>Players By Team</h2>
+      <Input type="select" on:change={searchByTeam}>
+        {#each allTeamNames as teamName}
+            <option>{teamName}</option>
+        {/each}
+      </Input>
+    </TabPane>
+    <TabPane tabId="position" tab="Position">
+      <h2>Players By Position</h2>
+      <Input type="select" on:change={searchByPosition}>
+        <option selected>Forward</option>
+        <option>Midfielder</option>
+        <option>Defender</option>
+        <option>Goalkeeper</option>
+      </Input>
+    </TabPane>
+    <TabPane tabId="search" tab="Search For a Player">
+      <h2>Search For A Player</h2>
+        <Input
+          type="search"
+          name="search"
+          id="exampleSearch"
+          placeholder="enter a player's name to search" 
+          on:input={searchByName}/>
+    </TabPane>
+  </TabContent>
+
     <Table>
         <thead>
             <tr>
@@ -94,16 +152,21 @@
                 {#if turnsUntilMine > 0}
                     (not yet my turn)
                 {/if}
-
+            </th>
+            <th>Add To Watchlist
             </th>
             </tr>
         </thead>
         <tbody>
-            {#each Object.values(data.draftRoomInfo.draftGroup.availablePlayers) as player}
+            {#each allPlayersMatchingCriteria as playerSeason}
             <tr>
-                <td>{player.player.name}</td>
-                <td>{player.teamSeason.team.name}</td>
-                <td><Button value={player.player.id} disabled={turnsUntilMine>0||!draftLive} on:click={() => draftPlayer(player.player.id)}>draft</Button></td>
+                <td>{playerSeason.player.name}</td>
+                <td>{playerSeason.teamSeason.team.name}</td>
+                <td><Button value={playerSeason.player.id} disabled={turnsUntilMine>0||!draftLive} on:click={() => draftPlayer(playerSeason)}>draft</Button></td>
+                <td><form method="POST" action="?/addToWatchlist">
+                    <input name="playerId" value={playerSeason.player.id} type="hidden"/>
+                    <input value="submit" type="submit"/>
+                </form></td>
             </tr>
             {/each}
         </tbody>

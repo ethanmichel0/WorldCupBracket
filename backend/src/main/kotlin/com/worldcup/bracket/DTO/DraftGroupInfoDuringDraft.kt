@@ -6,6 +6,7 @@ import com.worldcup.bracket.Entity.DraftGroup
 
 data class DraftGroupInfoDuringDraft(
     val playerSelected: PlayerSeason? = null,
-    val draftGroup: DraftGroup,
-    val playerDraft: PlayerDraft
+    val draftGroup: DraftGroup? = null,
+    val playerDraft: PlayerDraft? = null,
+    val error: String? = null
 )

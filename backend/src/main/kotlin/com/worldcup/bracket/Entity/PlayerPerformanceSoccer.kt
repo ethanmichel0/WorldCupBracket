@@ -51,5 +51,14 @@ data class PlayerPerformanceSoccer (
     override val game: Game,
     @Id 
     override val id : ObjectId = ObjectId.get(),
-) : PlayerPerformance()
+) : PlayerPerformance() {
+    val points: Int
+        get() : Int {
+            val goalsAccountingForNull = if (goals==null) 0 else 2 * this.goals!!
+            val assistsAccountingForNull = if (assists==null) 0 else this.assists!!
+            println("in getter")
+            return goalsAccountingForNull + assistsAccountingForNull
+        }
+    // TODO modify, this is just for testing
+}
     
