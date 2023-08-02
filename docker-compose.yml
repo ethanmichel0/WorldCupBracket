@@ -24,6 +24,11 @@ services:
     tty: true
     volumes: 
       - ./backend/src:/app/src
+    logging:
+      driver: "json-file"
+      options:
+        max-file: 5
+        max-size: 15m
       
   frontend-svelte:
     image: bracket_frontend
@@ -38,6 +43,11 @@ services:
       - ./frontend-svelte/src:/app/src
     depends_on:
       - spring-boot
+    logging:
+      driver: "json-file"
+      options:
+        max-file: 5
+        max-size: 15m
 
 
 volumes:

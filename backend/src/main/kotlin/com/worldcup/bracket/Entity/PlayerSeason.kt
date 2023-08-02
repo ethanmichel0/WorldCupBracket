@@ -3,6 +3,9 @@ package com.worldcup.bracket.Entity
 import org.springframework.data.annotation.Id
 import org.bson.types.ObjectId
 
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
+
 import org.springframework.data.mongodb.core.mapping.Document
 
 @Document(collection="playerseasons")
@@ -12,7 +15,8 @@ data class PlayerSeason(
     val position: Position,
     val number: Int,
     var playerLeftClubDuringSeason: Boolean = false,
-    @Id 
+    @Id
+    @JsonSerialize(using = ToStringSerializer::class) 
     val id: ObjectId = ObjectId.get()
 ) {
     var gamesPlayed: Int = 0

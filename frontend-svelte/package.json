@@ -12,16 +12,20 @@
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^2.0.0",
 		"@sveltejs/kit": "^1.5.0",
+		"@zerodevx/svelte-toast": "^0.9.5",
+		"install": "^0.13.0",
+		"npm": "^9.8.1",
 		"svelte": "^3.54.0",
 		"svelte-check": "^3.0.1",
+		"svelte-dnd-action": "^0.9.24",
 		"typescript": "^5.0.0",
 		"vite": "^4.3.0"
 	},
 	"type": "module",
 	"dependencies": {
-		"websocket" : "1.0.34",
 		"sockjs-client": "^1.6.1",
 		"stompjs": "^2.3.3",
-		"sveltestrap": "^5.10.0"
+		"sveltestrap": "^5.10.0",
+		"websocket": "1.0.34"
 	}
 }

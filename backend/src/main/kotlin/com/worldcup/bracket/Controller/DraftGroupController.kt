@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.server.ResponseStatusException
 
+
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
@@ -191,11 +192,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    
-    @PostMapping("/api/draftgroups/offerTrade")
-    fun offerTrade(tradeOffer: TradeOffer, principal: Principal) : ResponseEntity<String> {
+    @PostMapping("/api/draftgroups/{draftGroupName}/offerTrade")
+    fun offerTrade(@RequestBody tradeOffer: TradeOffer, @PathVariable draftGroupName: String, principal: Principal) : ResponseEntity<String> {
         try {
-            draftGroupService.offerTrade(tradeOffer, principal)
+            draftGroupService.offerTrade(tradeOffer, draftGroupName, principal)
             return ResponseEntity.status(HttpStatus.OK).body(null)
         } catch (e: Exception) {
             if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
@@ -205,8 +205,8 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    @PostMapping("/api/draftgroups/respondToTradeOffer/{tradeOfferId}")
-    fun respondToTradeOffer(response: String, @PathVariable tradeOfferId: String, principal: Principal) : ResponseEntity<String> {
+    @PostMapping("/api/draftgroups/{draftGroupName}/respondToTradeOffer/{tradeOfferId}")
+    fun respondToTradeOffer(response: String, @PathVariable draftGroupName: String, @PathVariable tradeOfferId: String, principal: Principal) : ResponseEntity<String> {
         try {
             draftGroupService.respondToTradeOffer(response, tradeOfferId, principal)
             return ResponseEntity.status(HttpStatus.OK).body(null)
@@ -218,10 +218,10 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    @DeleteMapping("/api/draftgroups/{tradeOfferId}")
-    fun deleteTradeOffer(@PathVariable tradeOfferId: String, principal: Principal) : ResponseEntity<String> {
+    @DeleteMapping("/api/draftgroups/{draftGroupName}/{tradeOfferId}")
+    fun deleteTradeOffer(@PathVariable tradeOfferId: String, @PathVariable draftGroupName: String, principal: Principal) : ResponseEntity<String> {
         try {
-            draftGroupService.deleteTradeOffer(tradeOfferId, principal)
+            draftGroupService.deleteTradeOffer(tradeOfferId, draftGroupName, principal)
             return ResponseEntity.status(HttpStatus.OK).body(null)
         } catch (e: Exception) {
             if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())

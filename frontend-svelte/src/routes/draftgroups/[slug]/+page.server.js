@@ -19,11 +19,11 @@ export async function load({ params, locals, cookies }) {
 
     let responseJSON = await response.json()
 
-    return {...responseJSON,userAuth:locals.user}
+    return {...responseJSON,userAuth:locals.user,groupName:params.slug}
 }
 
 export const actions = {
-    default: async ({cookies,request,params}) => {
+    setTime: async ({cookies,request,params}) => {
         console.log("in default action!")
         const data = await request.formData();
         const dateAsString = data.get("unixTimeStamp")
@@ -38,5 +38,21 @@ export const actions = {
         console.log(response.status + "IS RSP STATUS")
         const text = await response.text()
         console.log(text + "IS RESPONSE TXT")
+    },
+    makeTrade: async ({cookies,request,params}) => {
+        const data = await request.formData();
+        const tradeOffer = data.get("tradeOffer")
+
+        let response = await fetch(`${getBaseUrlFromServer()}/api/draftgroups/${params.slug}/offerTrade`,
+        {
+        headers:{
+            Cookie : `JSESSIONID=${cookies.get('JSESSIONID')}`,
+            "Content-Type": "application/json",
+            'Accept': 'text/html'
+        },
+        method: "POST",
+        body: tradeOffer})
+        console.log(response.status + "is response status")
+        console.log(await response.text() + "is text")
     }
 };

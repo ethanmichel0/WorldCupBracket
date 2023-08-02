@@ -2,13 +2,18 @@
 	import { onMount } from 'svelte';
     import {Table, Button, TabContent, TabPane, Input, Form} from 'sveltestrap'
     import {over} from "stompjs"
-    import SockJS from "sockjs-client/dist/sockjs"
+    import SockJS, { stringify } from "sockjs-client/dist/sockjs"
+    import {dndzone} from "svelte-dnd-action";
+	import { enhance } from '$app/forms';
 
     /** @type {import('$types').PageData} */
     export let data;
-    let playerSelected
+    let lastSelectedPlayer
+    let lastUserToSelect
+    let onWatchListTab = false
+    let onMySquadTab = false
 
-    let client
+    let client 
     let days, hours, minutes, seconds
     const myIndex = data.draftRoomInfo.draftGroup.members.indexOf(data.userAuth.email)
     let userCurrentTurnIndex = data.draftRoomInfo.draftGroup.indexOfCurrentUser
@@ -16,7 +21,18 @@
     $: turnsUntilMine = (myIndex >= userCurrentTurnIndex) ? myIndex - userCurrentTurnIndex: data.draftRoomInfo.draftGroup.members.length - userCurrentTurnIndex + myIndex
     $: draftLive = days <= 0 && hours <= 0 && minutes <=0
     let allPlayersMatchingCriteria = []
-    $: allPlayersEveryPosition = data.draftRoomInfo.draftGroup.availableForwards.concat(data.draftRoomInfo.draftGroup.availableMidfielders,data.draftRoomInfo.draftGroup.availableDefenders,data.draftRoomInfo.draftGroup.availableGoalkeepers)
+    $: myPlayers = data.draftRoomInfo.playerDraft.draftedPlayersAllPositions
+    console.log(myPlayers)
+    $: allPlayersEveryPosition = data.draftRoomInfo.draftGroup.availableForwards.concat(
+        data.draftRoomInfo.draftGroup.availableMidfielders,
+        data.draftRoomInfo.draftGroup.availableDefenders,
+        data.draftRoomInfo.draftGroup.availableGoalkeepers).map(
+            playerSeason => {
+                playerSeason.id = playerSeason.player.id // for the drag and drop component, the unique key cannot be nested (playerSeason.player.id),
+                // so we must copy this property so it is nested directly under playerSeason.
+                // https://github.com/isaacHagoel/svelte-dnd-action/issues/464
+                return playerSeason
+            })
     $: allTeamNames = [...new Set(allPlayersEveryPosition.map(playerSeason => playerSeason.teamSeason.team.name))]
     onMount(async() => {
         console.log("IN LOAD")
@@ -28,36 +44,87 @@
             (error) => console.log(`There was an error connecting to websocket: ${error}`))
         function onConnectedCallback() {
             client.subscribe(`/topic/draft/${data.groupName}`, function(message) {
-                console.log("received mess")
                 let bodyAsObj = JSON.parse(message.body)
-                console.log("message is:" + JSON.stringify(bodyAsObj))
                 console.log(bodyAsObj.draftGroup.indexOfCurrentUser)
-                console.log(`player selected is: ${bodyAsObj.playerSelected.player.name}`)
-                playerSelected = bodyAsObj.playerSelected.player.name
+                lastSelectedPlayer = bodyAsObj.playerSelected
+                lastUserToSelect = bodyAsObj.playerDraft.userName
                 userCurrentTurnIndex = bodyAsObj.draftGroup.indexOfCurrentUser
-                data.draftRoomInfo.draftGroup.availablePlayers.filter(playerSeason => playerSeason.player.id != bodyAsObj.playerSelected.player.id)
-                console.log(bodyAsObj.draftGroup.indexOfCurrentUser + "is curr ind")
+                handlePlayerDrafted(lastSelectedPlayer)
             })
         }
     })
 
-    function draftPlayer(playerSeason) {
-        client.send(`/app/api/draftgroups/${data.groupName}/draftplayer/${playerSeason.player.id}`,{},"")
-        
+    function handleDndConsider(e) {
+        allPlayersMatchingCriteria = e.detail.items;
+    }
+    function handleDndFinalize(e) {
+        allPlayersMatchingCriteria = e.detail.items;
+    }
+
+    function handlePlayerDrafted(playerSeason) {
+        console.log("in handler! value is" + playerSeason)
+        data.draftRoomInfo.playerDraft.watchListUndrafted = data.draftRoomInfo.playerDraft.watchListUndrafted.filter(ps => ps != playerSeason)
+        console.log("46: size is " + data.draftRoomInfo.draftGroup.availableMidfielders.length)
         switch (playerSeason.position) {
             case 'Attacker':
-                data.draftRoomInfo.availableForwards = data.draftRoomInfo.availableForwards.filter(forward => forward.player.id != playerSeason.player.id)
+                data.draftRoomInfo.draftGroup.availableForwards = data.draftRoomInfo.draftGroup.availableForwards.filter(forward => forward.player.id != playerSeason.player.id)
                 break;
             case 'Midfielder':
-                data.draftRoomInfo.availableMidfielders = data.draftRoomInfo.availableMidfielders.filter(midfielder => midfielder.player.id != playerSeason.player.id)
+                data.draftRoomInfo.draftGroup.availableMidfielders = data.draftRoomInfo.draftGroup.availableMidfielders.filter(midfielder => midfielder.player.id != playerSeason.player.id)
                 break;
             case 'Defender':
-                data.draftRoomInfo.availableDefenders = data.draftRoomInfo.availableDefenders.filter(defender => defender.player.id != playerSeason.player.id)
+                data.draftRoomInfo.draftGroup.availableDefenders = data.draftRoomInfo.draftGroup.availableDefenders.filter(defender => defender.player.id != playerSeason.player.id)
                 break;
             default:
-                data.draftRoomInfo.availableGoalkeepers = data.draftRoomInfo.availableGoalkeepers.filter(goalkeeper => goalkeeper.player.id != playerSeason.player.id)
+                data.draftRoomInfo.draftGroup.availableGoalkeepers = data.draftRoomInfo.draftGroup.availableGoalkeepers.filter(goalkeeper => goalkeeper.player.id != playerSeason.player.id)
         }
     }
+
+    function handleTabChanges(event) {
+        if (event.detail == "watchlist") {
+            onWatchListTab = true
+            onMySquadTab = false
+            showWatchlist()
+        } else if (event.detail == "myplayers") {
+            onWatchListTab = false
+            onMySquadTab = true
+        } else {
+            onWatchListTab = false
+            onMySquadTab = false
+            allPlayersMatchingCriteria = []
+        }
+    }
+
+    function draftPlayer(playerSeason) {
+        console.log("player id is " + playerSeason.player.id)
+        client.send(`/app/api/draftgroups/${data.groupName}/draftplayer/${playerSeason.player.id}`,{},"")
+        // TODO make sure that player was drafted properly
+        myPlayers.push(playerSeason)
+    }
+
+    function showWatchlist() {
+        console.log("showing watch list")
+        allPlayersMatchingCriteria = data.draftRoomInfo.playerDraft.watchListUndrafted
+        onWatchListTab = true
+    }
+
+    // async function reorderWatchList() {
+    //     console.log(allPlayersMatchingCriteria.map(x => x.id))
+    //     console.log("in reorder watch list")
+    //     console.log("cookie is: " + data.authCookie)
+    //     let response = await fetch(`${getBaseUrlFromClient()}/api/draftgroups/${data.groupName}/reorderWatchList`,
+    //     {
+    //     credentials:'include',
+    //     headers:{
+    //         Cookie : `JSESSIONID=${data.userAuth}`,
+    //         "Content-Type": "application/json",
+    //         'Accept': 'text/html'
+    //     },
+    //     method: "PUT",
+    //     body: JSON.stringify({updatedWatchList:allPlayersMatchingCriteria})})
+    //     console.log(response.status + "is response status")
+    //     console.log(await response.text() + "is text")
+    // }
 
     function searchByTeam(event) {
         let teamName = event.target.value
@@ -66,6 +133,7 @@
 
     function searchByPosition(event) {
         let position = event.target.value
+        console.log("position is: " + position)
         allPlayersMatchingCriteria = allPlayersEveryPosition.filter(playerSeason => playerSeason.position == position)
     }
 
@@ -110,11 +178,11 @@
 <p>
     {turnsUntilMine} until my turn!
 </p>
-{#if playerSelected}
-    <p>Last selected player is: {playerSelected}</p>
+{#if lastSelectedPlayer}
+    <p>Last selected player was: {lastSelectedPlayer.player.name} by {lastUserToSelect} </p>
 {/if}
 
-<TabContent>
+<TabContent on:tab={handleTabChanges}>
     <TabPane tabId="team" tab="Team" active>
       <h2>Players By Team</h2>
       <Input type="select" on:change={searchByTeam}>
@@ -126,7 +194,7 @@
     <TabPane tabId="position" tab="Position">
       <h2>Players By Position</h2>
       <Input type="select" on:change={searchByPosition}>
-        <option selected>Forward</option>
+        <option selected value="Attacker">Forward</option>
         <option>Midfielder</option>
         <option>Defender</option>
         <option>Goalkeeper</option>
@@ -141,33 +209,76 @@
           placeholder="enter a player's name to search" 
           on:input={searchByName}/>
     </TabPane>
+    <TabPane tabId="watchlist" tab="My Watchlist">
+        <h2>Please note that the order matters!</h2>
+        <p>The top player on your watchlist still meeting positional requirements and still undrafted will be drafted first on your next turn if you fail to make your selection in time.</p>
+    </TabPane>
+    <TabPane tabId="myplayers" tab="My Squad">
+        <h2>You can offer trades once the draft is finished</h2>
+        <Table>
+            <thead>
+                <tr>
+                <th>Player Name</th>
+                <th>Player Team</th>
+                <th>Player Position</th>
+            </thead>
+                <tbody>
+                    {#each myPlayers as playerSeason(playerSeason.player.id)}
+                            <tr>
+                                <td>{playerSeason.player.name}</td>
+                                <td>{playerSeason.teamSeason.team.name}</td>
+                                <td>{playerSeason.position}</td>
+                            </tr>
+                    {/each}
+                </tbody>
+        </Table>
+    </TabPane>
   </TabContent>
 
-    <Table>
-        <thead>
-            <tr>
-            <th>Player Name</th>
-            <th>Player Team</th>
-            <th>Draft! 
-                {#if turnsUntilMine > 0}
-                    (not yet my turn)
+    {#if ! onMySquadTab}
+        <Table>
+            <thead>
+                <th>Player Name</th>
+                <th>Player Team</th>
+                <th>Player Position</th>
+                <th>Draft! 
+                    {#if turnsUntilMine > 0}
+                        (not yet my turn)
+                    {/if}
+                </th>
+                {#if !onWatchListTab}
+                    <th>Add To Watchlist</th>
                 {/if}
-            </th>
-            <th>Add To Watchlist
-            </th>
-            </tr>
-        </thead>
-        <tbody>
-            {#each allPlayersMatchingCriteria as playerSeason}
-            <tr>
-                <td>{playerSeason.player.name}</td>
-                <td>{playerSeason.teamSeason.team.name}</td>
-                <td><Button value={playerSeason.player.id} disabled={turnsUntilMine>0||!draftLive} on:click={() => draftPlayer(playerSeason)}>draft</Button></td>
-                <td><form method="POST" action="?/addToWatchlist">
-                    <input name="playerId" value={playerSeason.player.id} type="hidden"/>
-                    <input value="submit" type="submit"/>
-                </form></td>
-            </tr>
-            {/each}
-        </tbody>
-    </Table>
+            </thead>
+                <tbody use:dndzone={{items: allPlayersMatchingCriteria}} on:consider={handleDndConsider} on:finalize={handleDndFinalize}>
+                    {#each allPlayersMatchingCriteria as playerSeason(playerSeason.id)}
+                            <tr>
+                                <td>{playerSeason.player.name}</td>
+                                <td>{playerSeason.teamSeason.team.name}</td>
+                                <td>{playerSeason.position}</td>
+                                <td><Button value={playerSeason.player.id} disabled={turnsUntilMine>0||!draftLive} on:click={() => draftPlayer(playerSeason)}>draft</Button></td>
+                                {#if !onWatchListTab}
+                                    <td><form method="POST" action="?/addToWatchlist">
+                                        <input name="playerId" value={playerSeason.player.id} type="hidden"/>
+                                        <input type="submit" value="asdf"/>
+                                    </form></td>
+                                {/if}
+                            </tr>
+                    {/each}
+                </tbody>
+                    {#if onWatchListTab}
+                        <button type="submit" form=reorderform>Reorder</button>
+                    {/if}
+        </Table>
+    {/if}
+
+
+    <form
+        method="POST"
+        action="?/reorderWatchList"
+        use:enhance={({ data }) => {
+            data.set("updatedWatchList",JSON.stringify({updatedWatchList:allPlayersMatchingCriteria}))
+            // this trick means that we don't have to worry about configuring CORS server side
+        }}
+        id="reorderform">
+    </form>

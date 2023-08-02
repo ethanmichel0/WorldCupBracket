@@ -18,6 +18,7 @@ import java.util.SortedSet
 
 data class PlayerDraft(
     val userEmail: String,
+    val userName: String,
     val draftGroup: DraftGroup,
     @JsonSerialize(using = ToStringSerializer::class)
     @Id 

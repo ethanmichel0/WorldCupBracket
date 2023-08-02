@@ -21,14 +21,12 @@
     <input type="text" id="groupName" name="name"><br><br>
     <label for="password">Password</label>
     <input type="text" id="password" name="password"><br>
-    <label for="numPlayers">Number of Players per Team</label>
-    <input type="text" id="numPlayers" name="numPlayers"><br>
     <label for="amountTime">Amount of time per turn in seconds</label>
     <input type="text" id="amountTime" name="amountTimePerTurnInSeconds"><br>
     <label for="leagueIds">Choose the leagues for the draft</label>
     <select name="leagueIds" id="leagueIds" multiple>
-        <option value="39">Premier League</option>
-        <option value="322">Fake LEague</option>
+        <option value="1">World Cup</option>
+        <option value="8">Women's World Cup</option>
     </select>
     <input type="submit" value="Submit">
 </Form>

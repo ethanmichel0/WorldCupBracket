@@ -6,6 +6,9 @@ import org.bson.types.ObjectId
 import org.springframework.data.mongodb.core.mapping.Document
 import com.worldcup.bracket.Entity.Team
 
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
+
 @Document(collection="teamseasons")
 data class TeamSeason(
     val team: Team,
@@ -14,6 +17,7 @@ data class TeamSeason(
     var position: Int = -1,
     val group: String?,
     @Id 
+    @JsonSerialize(using = ToStringSerializer::class) 
     val id: ObjectId = ObjectId.get()
 ) {
 

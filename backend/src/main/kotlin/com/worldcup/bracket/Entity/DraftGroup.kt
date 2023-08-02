@@ -44,7 +44,7 @@ data class DraftGroup(
         get() = this.members.size * this.numberOfPlayersEachTeam == this.numberPlayersDrafted
     val draftOngoing: Boolean
         get() = ! this.draftComplete && Instant.now().getEpochSecond() >= this.draftTime
-    val availablePlayers: List<PlayerSeason>
+    val availablePlayersAllPositions: List<PlayerSeason>
         get() = availableGoalkeepers + availableDefenders + availableMidfielders + availableForwards
 }
     

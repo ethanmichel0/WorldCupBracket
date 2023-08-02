@@ -111,6 +111,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         public val TRADE_MUST_BE_WITHIN_GROUP = Pair("The player that you are trying to trade with must be in the same group as you",HttpStatus.BAD_REQUEST)
         public val INVALID_PLAYERID_IN_TRADE = Pair("One of the plaeyrs you are trying to trade has an invalid player id",HttpStatus.BAD_REQUEST)
         public val PLAYER_IN_TRADE_NOT_OWNED = Pair("Not all of the players you are trying to trade are owned by you or the person you are trading with", HttpStatus.FORBIDDEN)
+        public val PLAYER_IN_TRADE_NOT_AVAILABLE = Pair("One or more of the players you are trying to obtain is already owned by another player. Please offer that player a trade", HttpStatus.FORBIDDEN)
         public val UNEQUAL_NUMBER_PLAYERS_POSITIONS_FOR_TRADE = Pair("Trades must have equal positional numbers (e.g. one midfielder and one defender for one midfielder and one defender)", HttpStatus.BAD_REQUEST)
         public val INVALID_TRADE_ID = Pair("The trade id that you are referencing is not valid", HttpStatus.BAD_REQUEST)
         public val MUST_BE_USER_RECEIVING_TRADE_OFFER = Pair("In order to accept/decline the trade, you must be the user receiving the offer", HttpStatus.FORBIDDEN)
@@ -261,11 +262,14 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
             group.availableForwards = allAvailablePlayers.filter{it -> it.position == Position.Attacker}.toMutableList()
 
             val playerDrafts : MutableList<PlayerDraft> = mutableListOf<PlayerDraft>()
+
+            val emailOfUserInGroupToNameOfUser = userRepository.findByEmailIn(group.members).associateBy({ it.email }, { it.name })
             
             group.members.shuffle()
             group.members.forEach{playerInDraftGroupEmail ->
                 playerDrafts.add(PlayerDraft(
                     userEmail = playerInDraftGroupEmail,
+                    userName = emailOfUserInGroupToNameOfUser.get(playerInDraftGroupEmail)!!,
                     draftGroup = group
                 ))
             }
@@ -347,8 +351,6 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         if (!allAvailablePlayersSamePosition.map{it.player.id}.contains(playerId)) {
             throw ResponseStatusException(PLAYER_NOT_AVAILABLE.second,PLAYER_NOT_AVAILABLE.first)
         }
-
-        println("relevant player to be drafted is: $player")
 
         allAvailablePlayersSamePosition.remove(player)
 
@@ -507,87 +509,129 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         if (groups.size == 0) throw ResponseStatusException(GROUP_DNE.second,GROUP_DNE.first)
 
         val playerDraft = playerDraftRepository.findPlayerDraftByGroupAndUserEmail(groupName,userMakingRequestEmail)[0]
-        if (updatedWatchListUserInput.updatedWatchList.sortedBy{it.player.name} != playerDraft.watchListUndrafted.sortedBy{it.player.name})
+        val originalSorted = playerDraft.watchListUndrafted.sortedBy{it.player.name}
+        val modifiedSorted = updatedWatchListUserInput.updatedWatchList.sortedBy{it.player.name}.toMutableList()
+        if (originalSorted != modifiedSorted) {
             throw ResponseStatusException(NEW_WATCHLIST_ORDERING_MUST_HAVE_SAME_PLAYERS.second,NEW_WATCHLIST_ORDERING_MUST_HAVE_SAME_PLAYERS.first)
+        }
+
         playerDraft.watchListUndrafted = updatedWatchListUserInput.updatedWatchList.toMutableList()
         playerDraftRepository.save(playerDraft)
     }
 
 
-    public fun offerTrade(tradeOffer: TradeOffer, principal: Principal) {
+    public fun offerTrade(tradeOffer: TradeOffer, draftGroupName: String, principal: Principal) {
+        // first check if trade is with another player, or to obtain a player that is not currently owned by anyone.
         val userMakingRequestEmail : String = userRepository.findByPrincipalId(principal.getName())[0].email
-        val playerOfferingTradeMatches = playerDraftRepository.findPlayerDraftByGroupAndUserEmail(tradeOffer.groupName,userMakingRequestEmail)
+        val playerOfferingTradeMatches = playerDraftRepository.findPlayerDraftByGroupAndUserEmail(draftGroupName,userMakingRequestEmail)
         if (playerOfferingTradeMatches.size == 0) throw ResponseStatusException(MUST_BE_MEMBER.second,MUST_BE_MEMBER.first)
+        
         val playerOfferingTrade = playerOfferingTradeMatches[0]
-        val playerReceivingTrade = playerDraftRepository.findByIdOrNull(tradeOffer.playerDraftReceivingOffer)
-
-        if (playerReceivingTrade == null || playerReceivingTrade.draftGroup.name != tradeOffer.groupName) throw ResponseStatusException(TRADE_MUST_BE_WITHIN_GROUP.second,TRADE_MUST_BE_WITHIN_GROUP.first)
-
-        // TODO allow trades with unequal positions (e.g. forward for a defender) as long as both players have minimum number at each position
-        // // ensure player offering trade will have enough players at each position if trade is completed, and player who is offered trade will have enough players at all positions
-        // // if trade is completed
-
-        // val numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete = mutableMapOf<Position,Int>()
-        // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Goalkeeper,playerOfferingTrade.draftedGoalkeepers.size)
-        // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Defender,playerOfferingTrade.draftedDefenders.size)
-        // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Midfielder,playerOfferingTrade.draftedMidfielders.size)
-        // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Attacker,playerOfferingTrade.draftedForwards.size)
-
-        // val numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete = mutableMapOf<Position,Int>()
-        // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Goalkeeper,playerReceivingTrade.draftedGoalkeepers.size)
-        // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Defender,playerReceivingTrade.draftedDefenders.size)
-        // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Midfielder,playerReceivingTrade.draftedMidfielders.size)
-        // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Attacker,playerReceivingTrade.draftedForwards.size)
-    
-        // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.forEach { entry -> 
-        //     if (MIN_PLAYERS_AT_EACH_POSITION.get(entry.key) < }
 
         val playersOffered = playerSeasonRepository.findByIdIn(tradeOffer.offeredPlayers)
         val playersRequested = playerSeasonRepository.findByIdIn(tradeOffer.requestedPlayers)
         if (playersOffered.size != tradeOffer.offeredPlayers.size || playersRequested.size != tradeOffer.requestedPlayers.size)
             throw ResponseStatusException(INVALID_PLAYERID_IN_TRADE.second,INVALID_PLAYERID_IN_TRADE.first)
-        
+
         playersOffered.forEach{
             if (! mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerOfferingTrade).get(it.position)!!.contains(it)) 
                 throw ResponseStatusException(PLAYER_IN_TRADE_NOT_OWNED.second,PLAYER_IN_TRADE_NOT_OWNED.first)
-        }        
-
-        playersRequested.forEach{
-            if (! mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerOfferingTrade).get(it.position)!!.contains(it)) 
-                throw ResponseStatusException(PLAYER_IN_TRADE_NOT_OWNED.second,PLAYER_IN_TRADE_NOT_OWNED.first)
         }
-
+        
         if (! (playersOffered.filter{it.position==Position.Goalkeeper}.size==playersRequested.filter{it.position==Position.Goalkeeper}.size
-            && playersOffered.filter{it.position==Position.Defender}.size==playersRequested.filter{it.position==Position.Defender}.size
-            && playersOffered.filter{it.position==Position.Midfielder}.size==playersRequested.filter{it.position==Position.Midfielder}.size
-            && playersOffered.filter{it.position==Position.Attacker}.size==playersRequested.filter{it.position==Position.Attacker}.size
-        ))
-            throw ResponseStatusException(UNEQUAL_NUMBER_PLAYERS_POSITIONS_FOR_TRADE.second,UNEQUAL_NUMBER_PLAYERS_POSITIONS_FOR_TRADE.first)
+                && playersOffered.filter{it.position==Position.Defender}.size==playersRequested.filter{it.position==Position.Defender}.size
+                && playersOffered.filter{it.position==Position.Midfielder}.size==playersRequested.filter{it.position==Position.Midfielder}.size
+                && playersOffered.filter{it.position==Position.Attacker}.size==playersRequested.filter{it.position==Position.Attacker}.size
+            )) {
+                throw ResponseStatusException(UNEQUAL_NUMBER_PLAYERS_POSITIONS_FOR_TRADE.second,UNEQUAL_NUMBER_PLAYERS_POSITIONS_FOR_TRADE.first)
+        }       
         
-        // ensure that none of players involved in trade are currently involved in another trade with the same players that would 
-        // jeopardize the trade if the other one went through. For example: if player 1 wants to trade messi for ronaldo with player 2 but player 2 already has an active trade offer
-        // with ronaldo for mbappe with player 3, player 1 should not be allowed to post the trade. 
+        if (tradeOffer.playerDraftReceivingOffer != null) {
+            val playerReceivingTrade = playerDraftRepository.findByIdOrNull(tradeOffer.playerDraftReceivingOffer)
 
-        // https://stackoverflow.com/questions/48096204/in-kotlin-how-to-check-contains-one-or-another-value
+            if (playerReceivingTrade == null || playerReceivingTrade.draftGroup.name != draftGroupName) throw ResponseStatusException(TRADE_MUST_BE_WITHIN_GROUP.second,TRADE_MUST_BE_WITHIN_GROUP.first)
 
-        playerTradeRepository.findAllActiveTradesInvolvingUser(playerOfferingTrade.id.toString()).forEach{activeTradeOffer ->
-            if (activeTradeOffer.playersOffering.any{it in tradeOffer.offeredPlayers} || activeTradeOffer.playersRequesting.any{it in tradeOffer.offeredPlayers})
-                throw ResponseStatusException(CONFLICTING_TRADE_OFFER_EXISTS.second,CONFLICTING_TRADE_OFFER_EXISTS.first)
-        }
+            // TODO allow trades with unequal positions (e.g. forward for a defender) as long as both players have minimum number at each position
+            // // ensure player offering trade will have enough players at each position if trade is completed, and player who is offered trade will have enough players at all positions
+            // // if trade is completed
+
+            // val numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete = mutableMapOf<Position,Int>()
+            // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Goalkeeper,playerOfferingTrade.draftedGoalkeepers.size)
+            // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Defender,playerOfferingTrade.draftedDefenders.size)
+            // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Midfielder,playerOfferingTrade.draftedMidfielders.size)
+            // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.put(Position.Attacker,playerOfferingTrade.draftedForwards.size)
+
+            // val numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete = mutableMapOf<Position,Int>()
+            // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Goalkeeper,playerReceivingTrade.draftedGoalkeepers.size)
+            // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Defender,playerReceivingTrade.draftedDefenders.size)
+            // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Midfielder,playerReceivingTrade.draftedMidfielders.size)
+            // numPlayersAtEachPositionForReceivingPlayerAfterTradeComplete.put(Position.Attacker,playerReceivingTrade.draftedForwards.size)
         
-        playerTradeRepository.findAllActiveTradesInvolvingUser(playerReceivingTrade.id.toString()).forEach{activeTradeOffer ->
-            if (activeTradeOffer.playersOffering.any{it in tradeOffer.requestedPlayers} || activeTradeOffer.playersRequesting.any{it in tradeOffer.requestedPlayers})
-                throw ResponseStatusException(CONFLICTING_TRADE_OFFER_EXISTS.second,CONFLICTING_TRADE_OFFER_EXISTS.first)
-        }
-        
-        playerTradeRepository.save(
-            PlayerTrade(
-                offeringPlayer = playerOfferingTrade.id.toString(),
-                receivingPlayer = playerReceivingTrade.id.toString(),
-                playersOffering = tradeOffer.offeredPlayers,
-                playersRequesting = tradeOffer.requestedPlayers
+            // numPlayersAtEachPositionForOfferingPlayerAfterTradeComplete.forEach { entry -> 
+            //     if (MIN_PLAYERS_AT_EACH_POSITION.get(entry.key) < }  
+
+            playersRequested.forEach{
+                if (! mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerReceivingTrade).get(it.position)!!.contains(it)) 
+                    throw ResponseStatusException(PLAYER_IN_TRADE_NOT_OWNED.second,PLAYER_IN_TRADE_NOT_OWNED.first)
+            } 
+            // ensure that none of players involved in trade are currently involved in another trade with the same players that would 
+            // jeopardize the trade if the other one went through. For example: if player 1 wants to trade messi for ronaldo with player 2 but player 2 already has an active trade offer
+            // with ronaldo for mbappe with player 3, player 1 should not be allowed to post the trade. 
+
+            // https://stackoverflow.com/questions/48096204/in-kotlin-how-to-check-contains-one-or-another-value
+
+            playerTradeRepository.findAllActiveTradesInvolvingUser(playerOfferingTrade.id.toString()).forEach{activeTradeOffer ->
+                if (activeTradeOffer.playersOffering.any{it in tradeOffer.offeredPlayers} || activeTradeOffer.playersRequesting.any{it in tradeOffer.offeredPlayers})
+                    throw ResponseStatusException(CONFLICTING_TRADE_OFFER_EXISTS.second,CONFLICTING_TRADE_OFFER_EXISTS.first)
+            }
+            
+            playerTradeRepository.findAllActiveTradesInvolvingUser(playerReceivingTrade.id.toString()).forEach{activeTradeOffer ->
+                if (activeTradeOffer.playersOffering.any{it in tradeOffer.requestedPlayers} || activeTradeOffer.playersRequesting.any{it in tradeOffer.requestedPlayers})
+                    throw ResponseStatusException(CONFLICTING_TRADE_OFFER_EXISTS.second,CONFLICTING_TRADE_OFFER_EXISTS.first)
+            }
+            
+            playerTradeRepository.save(
+                PlayerTrade(
+                    offeringPlayer = playerOfferingTrade.id.toString(),
+                    receivingPlayer = playerReceivingTrade.id.toString(),
+                    playersOffering = tradeOffer.offeredPlayers,
+                    playersRequesting = tradeOffer.requestedPlayers
+                )
             )
-        )
+        } else {
+            // make sure that all players requested are available (undrafted by any player)
+            // TODO only allow trades for currently undrafted players durihng certain periods (e.g. not while games are currently happening)
+            // implement deadline
+            playersRequested.forEach {
+                if (! mapPositionOfPlayerToRemainingPlayersAtSamePosition(playerOfferingTrade.draftGroup).get(it.position)!!.contains(it)) 
+                    throw ResponseStatusException(PLAYER_IN_TRADE_NOT_AVAILABLE.second,PLAYER_IN_TRADE_NOT_AVAILABLE.first)
+            }
+
+            val positionToUndraftedPlayersMap = mapPositionOfPlayerToRemainingPlayersAtSamePosition(playerOfferingTrade.draftGroup)
+            val positionToDraftedPlayersMap = mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerOfferingTrade)
+            
+            playersOffered.forEach{
+                positionToUndraftedPlayersMap.get(it.position)!!.add(it)
+                positionToDraftedPlayersMap.get(it.position)!!.remove(it)
+            }
+
+            playersRequested.forEach {
+                positionToUndraftedPlayersMap.get(it.position)!!.remove(it)
+                positionToDraftedPlayersMap.get(it.position)!!.add(it)
+            }
+
+            playerDraftRepository.save(playerOfferingTrade)
+            draftGroupRepository.save(playerOfferingTrade.draftGroup)
+
+            playerTradeRepository.save(
+                PlayerTrade(
+                    offeringPlayer = playerOfferingTrade.id.toString(),
+                    receivingPlayer = null,
+                    playersOffering = tradeOffer.offeredPlayers,
+                    playersRequesting = tradeOffer.requestedPlayers
+                )
+            )
+        }
     }
 
     public fun respondToTradeOffer(tradeStateString: String, playerTradeId: String, principal: Principal) {
@@ -637,7 +681,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         }
     }
 
-    public fun deleteTradeOffer(tradeOfferId: String, principal: Principal) {
+    public fun deleteTradeOffer(tradeOfferId: String, draftGroupName: String, principal: Principal) {
         val userMakingRequestEmail : String = userRepository.findByPrincipalId(principal.getName())[0].email
 
         val playerTrade = playerTradeRepository.findByIdOrNull(tradeOfferId)

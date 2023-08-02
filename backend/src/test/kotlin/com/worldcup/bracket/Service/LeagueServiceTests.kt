@@ -235,9 +235,11 @@ class LeagueServiceTests {
         playerDraftRepository.saveAll(
             listOf<PlayerDraft>(PlayerDraft(
                 userEmail="bob@gmail.com",
+                userName="Bob",
                 draftGroup=draftGroup
             ),PlayerDraft(
                 userEmail="billy@gmail.com",
+                userName="Billy",
                 draftGroup=draftGroup
             )
         ))

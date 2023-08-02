@@ -11,6 +11,7 @@ export function getBaseUrlFromClient() {
 
 // check if user is logged in, and if so set userinfo in store if it hasn't been set yet
 export async function isUserLoggedIn(event) {
+    console.log("in is userlogged in")
     let response = await fetch(`${getBaseUrlFromServer()}/api/userinfo`,
     {headers:{
         Cookie : `JSESSIONID=${event.cookies.get('JSESSIONID')}`

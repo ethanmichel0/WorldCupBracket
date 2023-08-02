@@ -18,7 +18,8 @@ export async function load({cookies,params,locals}) {
     return {
         draftRoomInfo: responseJSON,
         groupName: params.slug,
-        userAuth: locals.user
+        userAuth: locals.user,
+        authCookie: cookies.get('JSESSIONID')
     }
 }
 
@@ -49,19 +50,22 @@ export const actions = {
         }})
         console.log(x.status)
     },
-    reorderWatchList: async ({request,cookies}) => {
-        console.log("IN JOIN GROUP!!!")
+    reorderWatchList: async ({request,cookies,params}) => {
+        console.log("in reorder watch list")
+        console.log(`${params.slug} is group name`)
         const formData = await request.formData();
-        console.log("data to send is:" + formDataToJson(formData,[]))
-
-        let x = await fetch(`${getBaseUrlFromServer()}/api/draftgroups/join`,{method:'POST',body:formDataToJson(formData,[])
+        const updatedWatchList = formData.get("updatedWatchList")
+        console.log(updatedWatchList + "without json strinfigy")
+        console.log(JSON.stringify(updatedWatchList) + "wiht strinfigy")
+        console.log(JSON.stringify(formData.get("updatedWatchList")) + " is updated watch list bruh")
+        let x = await fetch(`${getBaseUrlFromServer()}/api/draftgroups/${params.slug}/reorderWatchList`,{method:'PUT'
         ,headers:{
             Cookie : `JSESSIONID=${cookies.get('JSESSIONID')}`,
             "Content-Type": "application/json",
-            'Accept': 'application/json'
-        }})
-
-        console.log(x.headers.get("content-type"))
+            'Accept': 'text/html'
+        },
+        body: updatedWatchList})
         console.log(x.status)
+        console.log("is text")
     }
 }
