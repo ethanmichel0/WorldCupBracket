@@ -32,6 +32,7 @@ import com.worldcup.bracket.DTO.WhoScoredEvents
 import com.worldcup.bracket.DTO.StandingsResponse
 
 import com.worldcup.bracket.Repository.GameRepository
+import com.worldcup.bracket.Repository.GameWeekRepository
 import com.worldcup.bracket.Repository.TeamSeasonRepository
 import com.worldcup.bracket.Repository.LeagueRepository
 import com.worldcup.bracket.Repository.PlayerDraftRepository
@@ -59,6 +60,7 @@ import org.jsoup.Jsoup
 
 @Service
 class GameService(private val gameRepository : GameRepository,
+    private val gameWeekRepository: GameWeekRepository,
     private val teamSeasonRepository : TeamSeasonRepository,
     private val leagueRepository : LeagueRepository,
     private val playerPerformanceSoccerRepository : PlayerPerformanceSoccerRepository,
@@ -209,6 +211,7 @@ class GameService(private val gameRepository : GameRepository,
     }
 
     public fun updateScores(fixtureId : String) {
+        println("in update scores brother")
         val request = BuildNewRequest(footballAPIData.getSingleFixtureEndpoint(fixtureId),"GET",null,"x-rapidapi-host",footballAPIData.X_RAPID_API_HOST,"x-rapidapi-key",footballAPIData.FOOTBALL_API_KEY)
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         val responseWrapper : FixturesAPIResponseWrapper = Gson().fromJson(response.body(), FixturesAPIResponseWrapper::class.java)
@@ -224,9 +227,9 @@ class GameService(private val gameRepository : GameRepository,
                 val whoScoredEventsJsonAsString = Jsoup.parseBodyFragment(individualMatchWhoScoredResponse.body()).body().select("div#layout-wrapper > script")[0].data().substringAfter("require.config.params[\"args\"] = ").substringBefore(";")
                 
                 val whoScoredEvents = Gson().fromJson(whoScoredEventsJsonAsString, WhoScoredEvents::class.java)
-                println("who scored events is: ${whoScoredEvents}")
                 val goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer: MutableMap<String,MutableList<Int>> = HashMap()
                 for (event in whoScoredEvents.matchCentreData.events) {
+                    if (event.playerId == null) continue
                     var playerGoalsOutsideBoxAndErrors = goalsFromOutsideOfBoxAndErrorsLeadingToGoalByPlayer.get(whoScoredEvents.matchCentreData.playerIdNameDictionary.get(event.playerId))
                     if (playerGoalsOutsideBoxAndErrors == null) {
                         val playerName: String = whoScoredEvents.matchCentreData.playerIdNameDictionary[event.playerId]!!
@@ -449,6 +452,7 @@ class GameService(private val gameRepository : GameRepository,
                 relevantPlayerPerformance.goalsFromOutsideOfBox = playerGoalsOutsideBox
             }
         }
+        println("454 brother")
 
         bulkUpdateAllPlayerDraftsWithPlayerPerformances(playerPerformances)
 
@@ -503,25 +507,35 @@ class GameService(private val gameRepository : GameRepository,
     }
 
     private fun bulkUpdateAllPlayerDraftsWithPlayerPerformances(playerPerformances: List<PlayerPerformanceSoccer>) {
+        println("in bulk update")
         val amountOfPointsBeforeLastUpdate : Map<ObjectId,Int> = playerPerformanceSoccerRepository.findByIdIn(playerPerformances.map{it.id}).associateBy({it.id},{it.points})
         // we only want to add the delta of points since the player received since the last update
 
+        println("before current game week query")
+        println("another test dj khalid")
+        println("${gameWeekRepository.findAll()} is all game weeks")
+        val currentGameWeek = gameWeekRepository.findTopByEndGreaterThanEqualOrderByEnd(Instant.now().getEpochSecond())
         // TODO test the efficiency of using mongodb's updateMany() api vs bulkWrite api. I think this should be efficient enough, but we may have to do some efficiency testing here
-        
-        val bulkUpdates = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, "playerdrafts");
+        println("after current game week query")
+
+
+        val bulkUpdatesPlayerDrafts = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, "playerdrafts");
+        val bulkUpdatesPlayerSelectionForGameWeek = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, "playerdrafts");
         for (pp in playerPerformances) {
             val amountOfPointsSinceLastUpdateDelta = if (amountOfPointsBeforeLastUpdate.get(pp.id) == null) pp.points else (pp.points - amountOfPointsBeforeLastUpdate.get(pp.id)!!)
             val forwardsCriteria = Criteria.where("draftedForwards").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
             val midsCriteria = Criteria.where("draftedMidfielders").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
             val defendersCriteria = Criteria.where("draftedDefenders").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
             val goalkeepersCriteria = Criteria.where("draftedGoalkeepers").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
-            val anyPositionCriteriaAndCurrentSeason = Criteria().andOperator(Criteria().orOperator(forwardsCriteria,midsCriteria,defendersCriteria,goalkeepersCriteria),
+            val anyPositionAndCurrentSeasonCriteria = Criteria().andOperator(Criteria().orOperator(forwardsCriteria,midsCriteria,defendersCriteria,goalkeepersCriteria),
                 Criteria.where("draftGroup.current").`is`(true))
-            val relevantDrafts = mongoTemplate.find(Query().addCriteria(anyPositionCriteriaAndCurrentSeason),PlayerDraft::class.java,"playerdrafts")
-            val incrementTotalRoundScore = Update().inc("pointsByRound.${pp.game.round}",amountOfPointsSinceLastUpdateDelta)
-            bulkUpdates.updateMulti(Query().addCriteria(anyPositionCriteriaAndCurrentSeason),incrementTotalRoundScore)
+
+            val playerStartingDuringGameWeek = Criteria.where("startedPlayers").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
+            val relevantDrafts = mongoTemplate.find(Query().addCriteria(anyPositionAndCurrentSeasonCriteria),PlayerDraft::class.java,"playerdrafts")
+            val incrementTotalRoundScore = Update().inc("pointsByGameWeek.${currentGameWeek.gameWeekName}",amountOfPointsSinceLastUpdateDelta)
+            bulkUpdatesPlayerDrafts.updateMulti(Query().addCriteria(anyPositionAndCurrentSeasonCriteria),incrementTotalRoundScore)
         }
-        val results = bulkUpdates.execute()
+        val results = bulkUpdatesPlayerDrafts.execute()
     }
 
     public fun getUpcomingGamesInLeague(leagueId: String) : List<Game> {

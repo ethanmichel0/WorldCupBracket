@@ -46,5 +46,6 @@ data class DraftGroup(
         get() = ! this.draftComplete && Instant.now().getEpochSecond() >= this.draftTime
     val availablePlayersAllPositions: List<PlayerSeason>
         get() = availableGoalkeepers + availableDefenders + availableMidfielders + availableForwards
+    var nextDraftDeadline: Long? = null
 }
     

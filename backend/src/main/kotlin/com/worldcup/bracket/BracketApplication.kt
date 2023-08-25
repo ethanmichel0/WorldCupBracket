@@ -6,7 +6,6 @@ import org.springframework.boot.runApplication
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
-import org.springframework.web.servlet.config.annotation.CorsRegistry
 
 
 import org.springframework.context.annotation.Configuration
@@ -23,14 +22,4 @@ class BracketApplication
 
 fun main(args: Array<String>) {
 	runApplication<BracketApplication>(*args)
-}
-class WebConfig : WebMvcConfigurer {
-
-	override fun addCorsMappings(registry: CorsRegistry) {
-
-		registry.addMapping("/api/**")
-				.allowedOrigins("http://localhost:1234")
-				.allowedMethods("PUT", "DELETE", "GET", "POST")
-				.allowedHeaders("*")
-	}
 }

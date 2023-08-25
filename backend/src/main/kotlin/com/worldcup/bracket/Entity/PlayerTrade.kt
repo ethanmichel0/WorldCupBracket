@@ -10,9 +10,9 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize
 data class PlayerTrade (
     val offeringPlayer: String,
     val receivingPlayer: String?, // if the player you are trade for is currently unowned by anyone in the group this will be null
-    val playersOffering: List<String>,
-    val playersRequesting: List<String>,
-    var state : TradeState = TradeState.Offered,
+    val playersOffering: List<PlayerSeason>,
+    val playersRequesting: List<PlayerSeason>,
+    var state: TradeState = TradeState.Offered,
     @Id
     @JsonSerialize(using = ToStringSerializer::class) 
     val id: ObjectId = ObjectId.get()

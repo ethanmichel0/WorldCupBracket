@@ -19,6 +19,7 @@ import com.worldcup.bracket.DTO.NewDraftGroup
 import com.worldcup.bracket.Entity.Team
 import com.worldcup.bracket.Entity.TeamSeason
 import com.worldcup.bracket.Entity.Game
+import com.worldcup.bracket.Entity.GameWeek
 import com.worldcup.bracket.Entity.Sport
 import com.worldcup.bracket.Entity.User
 import com.worldcup.bracket.Entity.AuthService
@@ -35,6 +36,7 @@ import com.worldcup.bracket.Repository.TeamSeasonRepository
 import com.worldcup.bracket.Repository.LeagueRepository
 import com.worldcup.bracket.Repository.TeamRepository
 import com.worldcup.bracket.Repository.GameRepository
+import com.worldcup.bracket.Repository.GameWeekRepository
 import com.worldcup.bracket.Repository.ScheduledTaskRepository
 import com.worldcup.bracket.Repository.UserRepository
 import com.worldcup.bracket.Repository.PlayerPerformanceSoccerRepository
@@ -52,6 +54,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import java.security.Principal
 import javax.security.auth.Subject
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 
@@ -97,6 +100,9 @@ class LeagueServiceTests {
 
     @Autowired
     private lateinit var gameRepository: GameRepository
+
+    @Autowired
+    private lateinit var gameWeekRepository: GameWeekRepository
 
     @Autowired
     private lateinit var scheduledTaskRepository: ScheduledTaskRepository
@@ -249,6 +255,14 @@ class LeagueServiceTests {
         bobPlayerDraft.draftedForwards.add(playerSeasonRepository.findPlayerSeasonBySeasonAndPlayer(2022,"18883")[0])
 
         playerDraftRepository.save(bobPlayerDraft)
+
+        gameWeekRepository.save(GameWeek(
+            start=Instant.now().getEpochSecond(),
+            deadline=Instant.now().getEpochSecond() - 1000,
+            end=Instant.now().getEpochSecond() + 10000,
+            gameWeekName="test game week",
+            league=prem
+        ))
     } 
 
     @Test
@@ -390,7 +404,7 @@ class LeagueServiceTests {
         // TODO this will change as the points system is updated
         // assertEquals(2,bobPlayerDraft.draftedForwards.size,"Bob drafted 2 forwards")
         //assertEquals(2,bobPlayerDraft.performancesByRound.get("Premier League Regular Season - 30")!!.size,"2 performacnes")
-        assertEquals(3,bobPlayerDraft.pointsByRound.get("Premier League Regular Season - 30"),"Bob gets a point for the Daka scoring, and Solanke assisting")
+        assertEquals(3,bobPlayerDraft.pointsByGameWeek.get("test game week"),"Bob gets a point for the Daka scoring, and Solanke assisting")
    }
         
     @AfterAll
@@ -405,6 +419,7 @@ class LeagueServiceTests {
         userRepository.deleteAll()
         draftGroupRepository.deleteAll()
         playerDraftRepository.deleteAll()
+        gameWeekRepository.deleteAll()
     }
 }
 

@@ -31,7 +31,8 @@ data class PlayerDraft(
     var watchListUndrafted: MutableList<PlayerSeason> = mutableListOf<PlayerSeason>(),
     var points: Int = 0,
     var performancesByRound: Map<String,Set<ObjectId>> = mutableMapOf<String,Set<ObjectId>>(),
-    var pointsByRound: Map<String,Int> = mutableMapOf<String,Int>()
+    var pointsByGameWeek: Map<String,Int> = mutableMapOf<String,Int>(),
+    var startsByGameweek: Map<String,Boolean> = mutableMapOf<String,Boolean>()
 ) {
     val draftedPlayersAllPositions: List<PlayerSeason>
         get() = draftedGoalkeepers + draftedDefenders + draftedMidfielders + draftedForwards

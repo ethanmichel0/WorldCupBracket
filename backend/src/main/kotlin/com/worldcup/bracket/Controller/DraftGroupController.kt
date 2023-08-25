@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.messaging.handler.annotation.MessageExceptionHandler
 import org.springframework.web.server.ResponseStatusException
 
 
@@ -18,13 +19,16 @@ import java.security.Principal
 
 import com.worldcup.bracket.DTO.DraftGroupWithMemberInformation
 import com.worldcup.bracket.DTO.NewDraftGroup
+import com.worldcup.bracket.DTO.NewGameWeek
 import com.worldcup.bracket.DTO.SetDraftTime
 import com.worldcup.bracket.DTO.DraftGroupInfoDuringDraft
 import com.worldcup.bracket.DTO.TradeOffer
 import com.worldcup.bracket.DTO.UpdatedWatchList
 import com.worldcup.bracket.Service.DraftGroupService
 import com.worldcup.bracket.Entity.DraftGroup
+import com.worldcup.bracket.Entity.GameWeek
 import com.worldcup.bracket.Entity.PlayerSeason
+import com.worldcup.bracket.Entity.PlayerTrade
 
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -192,6 +196,14 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
+    @MessageExceptionHandler
+    @SendTo("/topic/draft/{draftGroupName}/errors")
+    fun handleException(e: Exception) : String? {
+        println("in handle exception with e ${e}")
+        if (e is ResponseStatusException) return e.getReason()
+        throw e
+    }
+
     @PostMapping("/api/draftgroups/{draftGroupName}/offerTrade")
     fun offerTrade(@RequestBody tradeOffer: TradeOffer, @PathVariable draftGroupName: String, principal: Principal) : ResponseEntity<String> {
         try {
@@ -205,8 +217,8 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
-    @PostMapping("/api/draftgroups/{draftGroupName}/respondToTradeOffer/{tradeOfferId}")
-    fun respondToTradeOffer(response: String, @PathVariable draftGroupName: String, @PathVariable tradeOfferId: String, principal: Principal) : ResponseEntity<String> {
+    @PostMapping("/api/draftgroups/{draftGroupName}/respondToTradeOffer/{tradeOfferId}/{response}")
+    fun respondToTradeOffer(@PathVariable response: Boolean, @PathVariable draftGroupName: String, @PathVariable tradeOfferId: String, principal: Principal) : ResponseEntity<String> {
         try {
             draftGroupService.respondToTradeOffer(response, tradeOfferId, principal)
             return ResponseEntity.status(HttpStatus.OK).body(null)
@@ -225,6 +237,60 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
             return ResponseEntity.status(HttpStatus.OK).body(null)
         } catch (e: Exception) {
             if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
+
+    @PostMapping("/api/gameweek")
+    fun createGameWeek(@RequestBody gameWeek: NewGameWeek, principal: Principal) : ResponseEntity<GameWeek> {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(draftGroupService.createGameWeek(gameWeek, principal))
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(null)
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
+
+    @PutMapping("/api/gameweek")
+    fun editGameWeek(@RequestParam gameWeek: GameWeek, principal: Principal) : ResponseEntity<GameWeek> {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(draftGroupService.editGameWeek(gameWeek, principal))
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(null)
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
+
+    @DeleteMapping("/api/gameweek/{gameWeekName}")
+    fun deleteGameWeek(@RequestParam gameWeekName: String, principal: Principal) : ResponseEntity<String> {
+        try {
+            draftGroupService.deleteGameWeek(gameWeekName, principal)
+            return ResponseEntity.status(HttpStatus.OK).body(null)
+        } catch (e: Exception) {
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(e.getReason())
+            // since exception is unaccounted for log the message:
+            logger.error("$e")
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
+        }
+    }
+    
+
+    @GetMapping("/api/draftgroups/{draftGroupName}/trades")
+    fun getAllTradesInvolvingUser(@PathVariable draftGroupName: String, principal: Principal) : ResponseEntity<List<PlayerTrade>> {
+        println("246!!!")
+        try {
+            val allTrades = draftGroupService.getAllTradesInvolvingUser(draftGroupName,principal)
+            println("249")
+            return ResponseEntity.status(HttpStatus.OK).body(allTrades)
+        } catch (e: Exception) {
+            println("in exception: ${e}")
+            if (e is ResponseStatusException) return ResponseEntity.status(e.getStatus()).body(null)
             // since exception is unaccounted for log the message:
             logger.error("$e")
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)

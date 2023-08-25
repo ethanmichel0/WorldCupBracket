@@ -15,6 +15,7 @@ import org.bson.types.ObjectId
 
 import com.worldcup.bracket.DTO.LeagueResponse
 import com.worldcup.bracket.DTO.NewDraftGroup
+import com.worldcup.bracket.DTO.NewGameWeek
 import com.worldcup.bracket.DTO.DraftGroupInfoDuringDraft
 import com.worldcup.bracket.DTO.DraftGroupWithMemberInformation
 import com.worldcup.bracket.DTO.UpdatedWatchList
@@ -24,9 +25,11 @@ import com.worldcup.bracket.Repository.UserRepository
 import com.worldcup.bracket.Repository.LeagueRepository
 import com.worldcup.bracket.Repository.PlayerDraftRepository
 import com.worldcup.bracket.Repository.PlayerSeasonRepository
+import com.worldcup.bracket.Repository.GameWeekRepository
 import com.worldcup.bracket.Repository.ScheduledTaskRepository
 import com.worldcup.bracket.Repository.PlayerTradeRepository
 import com.worldcup.bracket.Entity.DraftGroup
+import com.worldcup.bracket.Entity.GameWeek
 import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.Entity.PlayerSeason
 import com.worldcup.bracket.Entity.PlayerDraft
@@ -58,6 +61,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
     private val playerDraftRepository: PlayerDraftRepository,
     private val playerSeasonRepository: PlayerSeasonRepository,
     private val scheduledTaskRepository: ScheduledTaskRepository,
+    private val gameWeekRepository: GameWeekRepository,
     private val leagueRepository: LeagueRepository,
     private val playerTradeRepository: PlayerTradeRepository,
     private val footballAPIData: GetFootballDataEndpoints,
@@ -94,6 +98,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         public val GROUP_ALREADY_EXISTS = Pair("Group Already Exists",HttpStatus.BAD_REQUEST)
         public val NOT_PERMITTED = Pair("You must be the owner of the group to do this action",HttpStatus.UNAUTHORIZED)
         public val TIME_NOT_VALID = Pair("The draft time you set is not valid. It must be at least 10 minutes in the future and before the end of the season.",HttpStatus.BAD_REQUEST)
+        public val TOO_LATE_TO_SET_DRAFT_TIME = Pair("The draft is already either ongoing or complete, so it is too late to change the draft time", HttpStatus.BAD_REQUEST)
         public val NOT_ENOUGH_MEMBERS = Pair("You must have at least two members in group to create a draft",HttpStatus.BAD_REQUEST)
         public val NO_USER_TO_REMOVE = Pair("The user you are trying to remove does not exist",HttpStatus.BAD_REQUEST)
         public val WRONG_NUMBER_LEAGUES = Pair("You must have at least one league, and if you have multiple, all must follow the same schedule (start and end same time of year)",HttpStatus.BAD_REQUEST)
@@ -110,6 +115,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         public val NEW_WATCHLIST_ORDERING_MUST_HAVE_SAME_PLAYERS = Pair("The reordered watchlist must contain the same players as the original watchlist. Only the order can change, not the elements themselves.",HttpStatus.BAD_REQUEST)
         public val TRADE_MUST_BE_WITHIN_GROUP = Pair("The player that you are trying to trade with must be in the same group as you",HttpStatus.BAD_REQUEST)
         public val INVALID_PLAYERID_IN_TRADE = Pair("One of the plaeyrs you are trying to trade has an invalid player id",HttpStatus.BAD_REQUEST)
+        public val CANNOT_TRADE_WITH_SELF = Pair("You cannot trade with yourself",HttpStatus.BAD_REQUEST)
         public val PLAYER_IN_TRADE_NOT_OWNED = Pair("Not all of the players you are trying to trade are owned by you or the person you are trading with", HttpStatus.FORBIDDEN)
         public val PLAYER_IN_TRADE_NOT_AVAILABLE = Pair("One or more of the players you are trying to obtain is already owned by another player. Please offer that player a trade", HttpStatus.FORBIDDEN)
         public val UNEQUAL_NUMBER_PLAYERS_POSITIONS_FOR_TRADE = Pair("Trades must have equal positional numbers (e.g. one midfielder and one defender for one midfielder and one defender)", HttpStatus.BAD_REQUEST)
@@ -119,6 +125,8 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         public val CONFLICTING_TRADE_OFFER_EXISTS = Pair("""There is another active trade offer that involves players involved in this trade. Please ensure that neither the 
                                                         requesting player nor the offering player is currently involved in another active trade for the same players and try again""",HttpStatus.BAD_REQUEST)
         public val MUST_BE_TRADE_INITIATOR_TO_DELETE = Pair("In order to delete a trade you must be the person who initiated it", HttpStatus.FORBIDDEN)
+        public val MUST_BE_ADMIN = Pair("You must be an admin to perform this action", HttpStatus.FORBIDDEN)
+        public val GAME_WEEK_DNE = Pair("Game Week does not exist",HttpStatus.NOT_FOUND)
     }
 
     public fun getAllDraftGroupsForUser(principal: Principal) : List<DraftGroup> {
@@ -249,9 +257,16 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         val instant = Instant.now()
         // TODO implmenent functionality making sure it's not too late to draft for a particular season
 
+        if (group.draftTime <= instant.getEpochSecond() && group.draftTime != -1L) {
+            throw ResponseStatusException(TOO_LATE_TO_SET_DRAFT_TIME.second,TOO_LATE_TO_SET_DRAFT_TIME.first)
+        }
+
+        if (time * 1000 <= GregorianCalendar().getTimeInMillis() + (1000 * TEN_MINUTES_IN_SECONDS)) {
+            throw ResponseStatusException(TIME_NOT_VALID.second,TIME_NOT_VALID.first)
+        }
+        
         if (group.draftTime == -1L) { // indicates that this is first time calling this method/setting the draft time
             // randomly shuffle members, but only on first time, that way someone can't call this method multiple times if they are unhappy with ordering
-            println("in if statement")
             println("leagues arez ${group.leagues.map{it.id}}")
             val allAvailablePlayers = playerSeasonRepository.findAllPlayerSeasonsByLeaguesAndSeason(group.leagues.map{it.id},group.season)
             println("all available size is ${allAvailablePlayers.size}")
@@ -277,9 +292,6 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         } else {
             println("not in if statement")
             group.members.shuffle()
-            if (group.draftTime <= instant.getEpochSecond()) {
-                throw ResponseStatusException(TIME_NOT_VALID.second,TIME_NOT_VALID.first)
-            }
 
             // if there was a preexisting draft time that is changed/updated, ensure that previous task to start draft is cancelled
             scheduledTaskRepository.delete(schedulerService.removeTaskFromScheduler(scheduledTaskRepository.findByRelatedEntity(group.id.toString())[0].id.toString()))
@@ -300,6 +312,7 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         ))
 
         group.draftTime = time
+        group.nextDraftDeadline = whenFirstPlayerMustChooseDeadline.toInstant().getEpochSecond()
         draftGroupRepository.save(group)
     }
 
@@ -365,7 +378,6 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerDraft).get(player.position)!!.add(player)
         updateWatchListsBasedOnDraftedPlayer(player,allPlayerDraftsWithDraftedPlayerInWatchList,playerDraft)
     
-        draftGroupRepository.save(group)
         playerDraftRepository.saveAll(allPlayerDraftsWithDraftedPlayerInWatchList)
         playerDraftRepository.save(playerDraft)
 
@@ -388,7 +400,11 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
                 repeatEvery = null,
                 relatedEntity = group.id.toString()
             ))
+            group.nextDraftDeadline = timeNextPlayerRunsOutOfTime.toInstant().getEpochSecond()
+        } else {
+            group.nextDraftDeadline = null
         }
+        draftGroupRepository.save(group)
 
         return DraftGroupInfoDuringDraft(player,group,playerDraft)
     }
@@ -425,14 +441,13 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerDraft).get(player.position)!!.add(player)
         updateWatchListsBasedOnDraftedPlayer(player,allPlayerDraftsInGroup,playerDraft)
     
-        draftGroupRepository.save(group)
         playerDraftRepository.saveAll(allPlayerDraftsInGroup)
         playerDraftRepository.save(playerDraft)
 
-        val timeNextPlayerRunsOutOfTime = GregorianCalendar()
-        timeNextPlayerRunsOutOfTime.add(Calendar.SECOND,group.amountOfTimeEachTurn)
 
         if (! group.draftComplete) {
+            val timeNextPlayerRunsOutOfTime = GregorianCalendar()
+            timeNextPlayerRunsOutOfTime.add(Calendar.SECOND,group.amountOfTimeEachTurn)
             scheduledTaskRepository.save(schedulerService.addNewTask(
                 task = Runnable{
                     autoDraftPlayerForCurrentUser(groupName)
@@ -442,7 +457,13 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
                 repeatEvery = null,
                 relatedEntity = group.id.toString()
             ))
+            group.nextDraftDeadline = timeNextPlayerRunsOutOfTime.toInstant().getEpochSecond()
+        } else {
+            group.nextDraftDeadline  = null
         }
+
+        draftGroupRepository.save(group)
+
 
         simpMessagingTemplate.convertAndSend("/topic/draft/${groupName}", 
             DraftGroupInfoDuringDraft(player,group,playerDraft));
@@ -537,6 +558,9 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
             if (! mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerOfferingTrade).get(it.position)!!.contains(it)) 
                 throw ResponseStatusException(PLAYER_IN_TRADE_NOT_OWNED.second,PLAYER_IN_TRADE_NOT_OWNED.first)
         }
+
+        if (tradeOffer.playerDraftReceivingOffer == playerOfferingTrade.id.toString())
+            throw ResponseStatusException(CANNOT_TRADE_WITH_SELF.second,CANNOT_TRADE_WITH_SELF.first)
         
         if (! (playersOffered.filter{it.position==Position.Goalkeeper}.size==playersRequested.filter{it.position==Position.Goalkeeper}.size
                 && playersOffered.filter{it.position==Position.Defender}.size==playersRequested.filter{it.position==Position.Defender}.size
@@ -581,12 +605,12 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
             // https://stackoverflow.com/questions/48096204/in-kotlin-how-to-check-contains-one-or-another-value
 
             playerTradeRepository.findAllActiveTradesInvolvingUser(playerOfferingTrade.id.toString()).forEach{activeTradeOffer ->
-                if (activeTradeOffer.playersOffering.any{it in tradeOffer.offeredPlayers} || activeTradeOffer.playersRequesting.any{it in tradeOffer.offeredPlayers})
+                if (activeTradeOffer.playersOffering.map{it.id.toString()}.any{it in tradeOffer.offeredPlayers} || activeTradeOffer.playersRequesting.map{it.id.toString()}.any{it in tradeOffer.offeredPlayers})
                     throw ResponseStatusException(CONFLICTING_TRADE_OFFER_EXISTS.second,CONFLICTING_TRADE_OFFER_EXISTS.first)
             }
             
             playerTradeRepository.findAllActiveTradesInvolvingUser(playerReceivingTrade.id.toString()).forEach{activeTradeOffer ->
-                if (activeTradeOffer.playersOffering.any{it in tradeOffer.requestedPlayers} || activeTradeOffer.playersRequesting.any{it in tradeOffer.requestedPlayers})
+                if (activeTradeOffer.playersOffering.map{it.id.toString()}.any{it in tradeOffer.requestedPlayers} || activeTradeOffer.playersRequesting.map{it.id.toString()}.any{it in tradeOffer.requestedPlayers})
                     throw ResponseStatusException(CONFLICTING_TRADE_OFFER_EXISTS.second,CONFLICTING_TRADE_OFFER_EXISTS.first)
             }
             
@@ -594,8 +618,8 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
                 PlayerTrade(
                     offeringPlayer = playerOfferingTrade.id.toString(),
                     receivingPlayer = playerReceivingTrade.id.toString(),
-                    playersOffering = tradeOffer.offeredPlayers,
-                    playersRequesting = tradeOffer.requestedPlayers
+                    playersOffering = playersOffered,
+                    playersRequesting = playersRequested
                 )
             )
         } else {
@@ -627,14 +651,14 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
                 PlayerTrade(
                     offeringPlayer = playerOfferingTrade.id.toString(),
                     receivingPlayer = null,
-                    playersOffering = tradeOffer.offeredPlayers,
-                    playersRequesting = tradeOffer.requestedPlayers
+                    playersOffering = playersOffered,
+                    playersRequesting = playersRequested
                 )
             )
         }
     }
 
-    public fun respondToTradeOffer(tradeStateString: String, playerTradeId: String, principal: Principal) {
+    public fun respondToTradeOffer(response: Boolean, playerTradeId: String, principal: Principal) {
         val userMakingRequestEmail : String = userRepository.findByPrincipalId(principal.getName())[0].email
 
         val playerTrade = playerTradeRepository.findByIdOrNull(playerTradeId)
@@ -644,35 +668,23 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         if (playerDraftReceivingOffer.userEmail != userMakingRequestEmail)
             throw ResponseStatusException(MUST_BE_USER_RECEIVING_TRADE_OFFER.second,MUST_BE_USER_RECEIVING_TRADE_OFFER.first)
 
-        lateinit var tradeState : TradeState
-        try {
-            tradeState = TradeState.valueOf(tradeStateString)
-        } catch (e: Exception) {
-            throw ResponseStatusException(NEED_TO_ACCEPT_OR_DECLINE_TRADE.second,NEED_TO_ACCEPT_OR_DECLINE_TRADE.first)
-        }
-        if (tradeState == TradeState.Offered) 
-            throw ResponseStatusException(NEED_TO_ACCEPT_OR_DECLINE_TRADE.second,NEED_TO_ACCEPT_OR_DECLINE_TRADE.first)
-
-        playerTrade.state = tradeState
-        if (tradeState == TradeState.Declined) {
+        playerTrade.state = if (response) TradeState.Accepted else TradeState.Declined
+        if (playerTrade.state == TradeState.Declined) {
             playerTradeRepository.save(playerTrade)
             return
-        }
-        if (tradeState == TradeState.Accepted) {
-            val playersOffered = playerSeasonRepository.findByIdIn(playerTrade.playersOffering)
-            val playersRequested = playerSeasonRepository.findByIdIn(playerTrade.playersRequesting)
+        } else {
             val playerDraftOfferingPlayer = playerDraftRepository.findByIdOrNull(playerTrade.offeringPlayer)!!
             val playerDraftReceivingPlayer = playerDraftRepository.findByIdOrNull(playerTrade.receivingPlayer)!!
             
             val samePositionMapOfferingPlayer = mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerDraftOfferingPlayer)
             val samePositionMapReceivingPlayer = mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerDraftReceivingPlayer)
             
-            playersOffered.forEach{
+            playerTrade.playersOffering.forEach{
                 samePositionMapOfferingPlayer.get(it.position)!!.remove(it)
                 samePositionMapReceivingPlayer.get(it.position)!!.add(it)
             }
 
-            playersRequested.forEach{
+            playerTrade.playersRequesting.forEach{
                 samePositionMapOfferingPlayer.get(it.position)!!.add(it)
                 samePositionMapReceivingPlayer.get(it.position)!!.remove(it)
             }
@@ -695,6 +707,13 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         playerTradeRepository.delete(playerTrade)
     }
 
+    public fun getAllTradesInvolvingUser(draftGroupName: String, principal: Principal) : List<PlayerTrade> {
+        val userMakingRequestEmail : String = userRepository.findByPrincipalId(principal.getName())[0].email
+        val playerOfferingTradeMatches = playerDraftRepository.findPlayerDraftByGroupAndUserEmail(draftGroupName,userMakingRequestEmail)
+        if (playerOfferingTradeMatches.size == 0) throw ResponseStatusException(MUST_BE_MEMBER.second,MUST_BE_MEMBER.first)
+        return playerTradeRepository.findAllActiveTradesInvolvingUser(playerOfferingTradeMatches[0].id.toString())
+    }
+
     private fun updateWatchListsBasedOnDraftedPlayer(player: PlayerSeason, allPlayerDraftsWithPlayerOnWatchlist: List<PlayerDraft>, myDraft: PlayerDraft) {
         allPlayerDraftsWithPlayerOnWatchlist.forEach{
             it.watchListUndrafted.remove(player)
@@ -706,6 +725,51 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
             myDraft.watchListUndrafted.forEach{if(it.position!=player.position) updatedWatchListWithPlayersAtFullPositionRemoved.add(it)}
             myDraft.watchListUndrafted = updatedWatchListWithPlayersAtFullPositionRemoved
         }
+    }
+
+    public fun createGameWeek(gameWeek: NewGameWeek, principal: Principal): GameWeek {
+        // Authentication check
+        //TODO make sure user is admin!! This is important
+        if (principal.name == null) {
+            throw ResponseStatusException(MUST_BE_ADMIN.second,MUST_BE_ADMIN.first)
+        }
+
+        return gameWeekRepository.save(GameWeek(
+            start=gameWeek.start,
+            end=gameWeek.end,
+            deadline=gameWeek.deadline,
+            gameWeekName=gameWeek.gameWeekName,
+            league=leagueRepository.findByIdOrNull(gameWeek.league)!!
+            
+        ))
+    }
+
+    public fun editGameWeek(gameWeek: GameWeek, principal: Principal): GameWeek {
+        // Authentication check
+        if (principal.name == null) {
+            throw ResponseStatusException(MUST_BE_ADMIN.second,MUST_BE_ADMIN.first)
+        }
+
+        val existingGameWeek = gameWeekRepository.findTopByGameWeekName(gameWeek.gameWeekName)
+            ?:  throw ResponseStatusException(GAME_WEEK_DNE.second,GAME_WEEK_DNE.first)
+        
+        existingGameWeek.start=gameWeek.start
+        existingGameWeek.end=gameWeek.end
+        existingGameWeek.deadline=gameWeek.deadline
+
+        return gameWeekRepository.save(existingGameWeek)
+    }
+
+    public fun deleteGameWeek(gameWeekName: String, principal: Principal) {
+        // Authentication check
+        if (principal.name == null) {
+            throw ResponseStatusException(MUST_BE_ADMIN.second,MUST_BE_ADMIN.first)
+        }
+
+        val existingGameWeek = gameWeekRepository.findTopByGameWeekName(gameWeekName)
+            ?: throw ResponseStatusException(GAME_WEEK_DNE.second,GAME_WEEK_DNE.first)
+
+        gameWeekRepository.delete(existingGameWeek)
     }
 
     // for example, if a midfielder is selected this will map to all remaining midfielders in the league
