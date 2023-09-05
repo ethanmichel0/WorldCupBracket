@@ -12,25 +12,30 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.crypto.password.PasswordEncoder
 
+import com.worldcup.bracket.Service.UserDetailsService
+
 import org.springframework.security.config.Customizer.withDefaults
 import org.springframework.security.web.context.SecurityContextHolderFilter
 
 @EnableWebSecurity
 @Configuration
-public class SecurityConfig(private val authenticationSuccessHandler : AuthenticationSuccessHandler) {
+public class SecurityConfig(
+    private val authenticationSuccessHandler: AuthenticationSuccessHandler,
+    private val userDetailsService: UserDetailsService) {
     @Throws(Exception::class)
     @Bean
     public fun override(http: HttpSecurity): SecurityFilterChain {
         return http
                 .csrf{csrf -> csrf.disable()}
                 .authorizeRequests{auth -> 
-                    auth.antMatchers("/api/draftgroups").authenticated()
+                    println("IN AUTHORIZING REQUEST!!")
                     auth.antMatchers("/api/games/**").authenticated()
                     auth.antMatchers("/app/**").authenticated()
                     // auth.antMatchers("/ws").authenticated()
                     auth.antMatchers("/ws/**").authenticated()
-                    auth.antMatchers("/**").permitAll()
+                    .anyRequest().authenticated()
                 }
+                .userDetailsService(userDetailsService)
                 .oauth2Login()
                 .successHandler(authenticationSuccessHandler)
                 //\.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())

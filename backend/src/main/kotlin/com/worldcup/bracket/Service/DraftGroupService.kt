@@ -140,7 +140,6 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         val allDraftGroupsSameName = draftGroupRepository.findByName(body.name)
         val owner = userRepository.findByPrincipalId(principal.getName())[0]
 
-
         val leaguesForDraft = leagueRepository.findByIdIn(body.leagueIds).toMutableList()
 
         if (draftGroupRepository.findByName(body.name).size>0) {
@@ -740,7 +739,6 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
             deadline=gameWeek.deadline,
             gameWeekName=gameWeek.gameWeekName,
             league=leagueRepository.findByIdOrNull(gameWeek.league)!!
-            
         ))
     }
 

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler
 import org.springframework.web.server.ResponseStatusException
+import org.springframework.security.access.prepost.PreAuthorize
 
 
 import org.springframework.http.HttpStatus
@@ -243,6 +244,7 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN)")
     @PostMapping("/api/gameweek")
     fun createGameWeek(@RequestBody gameWeek: NewGameWeek, principal: Principal) : ResponseEntity<GameWeek> {
         try {
@@ -255,6 +257,7 @@ class DraftGroupController(private val draftGroupService : DraftGroupService) {
         }
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN)")
     @PutMapping("/api/gameweek")
     fun editGameWeek(@RequestParam gameWeek: GameWeek, principal: Principal) : ResponseEntity<GameWeek> {
         try {
