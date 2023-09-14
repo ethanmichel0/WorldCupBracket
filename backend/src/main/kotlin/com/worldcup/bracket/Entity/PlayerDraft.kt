@@ -31,10 +31,32 @@ data class PlayerDraft(
     var watchListUndrafted: MutableList<PlayerSeason> = mutableListOf<PlayerSeason>(),
     var points: Int = 0,
     var performancesByRound: Map<String,Set<ObjectId>> = mutableMapOf<String,Set<ObjectId>>(),
-    var pointsByGameWeek: Map<String,Int> = mutableMapOf<String,Int>(),
-    var startsByGameweek: Map<String,Boolean> = mutableMapOf<String,Boolean>()
+    // these two fields will be indexed, whereas pointEarnersByGameWeek and nonPointEarnersByGameWeek will not be indexed
+    // since those fields don't need to be searched
+    var pointsByCurrentStarters: Map<String,Int> = mapOf<String,Int>(),
+    var pointsByCurrentSubs: Map<String,Pair<Int,Int>> = mapOf<String,Pair<Int,Int>>(),
+    // contains Pair(subPriority of player (1st elgible to sub in, etc), points in game week). This will allow us to determine which subs should score points for team in case starters don't play
+    
+    var gameWeekSummary: MutableMap<String,GameWeekSummary> = mutableMapOf<String,GameWeekSummary>()
 ) {
     val draftedPlayersAllPositions: List<PlayerSeason>
         get() = draftedGoalkeepers + draftedDefenders + draftedMidfielders + draftedForwards
 }
-    
+
+enum class Formation{
+    FOURFOURTWO,
+    FOURTHREETHREE,
+    FOURTWOFOUR,
+    FOURFIVEONE,
+    THREEFOURTHREE,
+    THREEFIVETWO,
+    FIVETHREETWO,
+    FIVEFOURONE
+}
+
+data class GameWeekSummary(
+    var formation: String,
+    val pointEarners: Map<String,Int> = mutableMapOf<String,Int>(),
+    var nonPointEarners: MutableMap<String,Pair<Int,Int>> = mutableMapOf<String,Pair<Int,Int>>()
+    // contains Pair(subPriority of player (1st elgible to sub in, etc), points in game week). This will allow us to determine which subs should score points for team in case starters don't play
+)

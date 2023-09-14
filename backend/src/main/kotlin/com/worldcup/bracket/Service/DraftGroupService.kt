@@ -16,6 +16,7 @@ import org.bson.types.ObjectId
 import com.worldcup.bracket.DTO.LeagueResponse
 import com.worldcup.bracket.DTO.NewDraftGroup
 import com.worldcup.bracket.DTO.NewGameWeek
+import com.worldcup.bracket.DTO.GameWeekSelection
 import com.worldcup.bracket.DTO.DraftGroupInfoDuringDraft
 import com.worldcup.bracket.DTO.DraftGroupWithMemberInformation
 import com.worldcup.bracket.DTO.UpdatedWatchList
@@ -33,7 +34,9 @@ import com.worldcup.bracket.Entity.GameWeek
 import com.worldcup.bracket.Entity.Player
 import com.worldcup.bracket.Entity.PlayerSeason
 import com.worldcup.bracket.Entity.PlayerDraft
+import com.worldcup.bracket.Entity.GameWeekSummary
 import com.worldcup.bracket.Entity.PlayerTrade
+import com.worldcup.bracket.Entity.Formation
 import com.worldcup.bracket.Entity.Position
 import com.worldcup.bracket.Entity.ScheduleType
 import com.worldcup.bracket.Entity.TaskType
@@ -127,6 +130,9 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         public val MUST_BE_TRADE_INITIATOR_TO_DELETE = Pair("In order to delete a trade you must be the person who initiated it", HttpStatus.FORBIDDEN)
         public val MUST_BE_ADMIN = Pair("You must be an admin to perform this action", HttpStatus.FORBIDDEN)
         public val GAME_WEEK_DNE = Pair("Game Week does not exist",HttpStatus.NOT_FOUND)
+        public val STARTING_PLAYER_YOU_DONT_OWN = Pair("You do not own the player that you are trying to start!",HttpStatus.BAD_REQUEST)
+        public val WRONG_NUMBER_PLAYERS_LINEUP = Pair("You are starting an invalid number of players or have an invalid number of subs",HttpStatus.BAD_REQUEST)
+        public val FORMATION_DNE = Pair("The formation you have selected is invalid",HttpStatus.BAD_REQUEST)
     }
 
     public fun getAllDraftGroupsForUser(principal: Principal) : List<DraftGroup> {
@@ -266,11 +272,8 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
         
         if (group.draftTime == -1L) { // indicates that this is first time calling this method/setting the draft time
             // randomly shuffle members, but only on first time, that way someone can't call this method multiple times if they are unhappy with ordering
-            println("leagues arez ${group.leagues.map{it.id}}")
             val allAvailablePlayers = playerSeasonRepository.findAllPlayerSeasonsByLeaguesAndSeason(group.leagues.map{it.id},group.season)
-            println("all available size is ${allAvailablePlayers.size}")
             group.availableGoalkeepers = allAvailablePlayers.filter{it -> it.position == Position.Goalkeeper}.toMutableList()
-            println("all available goalkeeprs is ${group.availableGoalkeepers.size}")
             group.availableDefenders = allAvailablePlayers.filter{it -> it.position == Position.Defender}.toMutableList()
             group.availableMidfielders = allAvailablePlayers.filter{it -> it.position == Position.Midfielder}.toMutableList()
             group.availableForwards = allAvailablePlayers.filter{it -> it.position == Position.Attacker}.toMutableList()
@@ -768,6 +771,45 @@ class DraftGroupService(private val draftGroupRepository: DraftGroupRepository,
             ?: throw ResponseStatusException(GAME_WEEK_DNE.second,GAME_WEEK_DNE.first)
 
         gameWeekRepository.delete(existingGameWeek)
+    }
+
+    public fun setGameWeekLineup(draftGroupName: String, gameWeekSelection: GameWeekSelection, principal: Principal) {
+        val userMakingRequestEmail : String = userRepository.findByPrincipalId(principal.getName())[0].email
+        val playerOfferingTradeMatches = playerDraftRepository.findPlayerDraftByGroupAndUserEmail(draftGroupName,userMakingRequestEmail)
+        if (playerOfferingTradeMatches.size == 0) throw ResponseStatusException(MUST_BE_MEMBER.second,MUST_BE_MEMBER.first)
+        val playerOfferingTrade = playerOfferingTradeMatches[0]
+
+        val startingPlayers = playerSeasonRepository.findByIdIn(gameWeekSelection.startingPlayers)
+        val subs = playerSeasonRepository.findByIdIn(gameWeekSelection.subPriority)
+        if (startingPlayers.size != gameWeekSelection.startingPlayers.size || subs.size != gameWeekSelection.subPriority.size) 
+            throw ResponseStatusException(INVALID_PLAYERID_IN_TRADE.second,INVALID_PLAYERID_IN_TRADE.first)
+
+        if (! Formation.values().map { it.name }.contains(gameWeekSelection.formation)) throw ResponseStatusException(FORMATION_DNE.second,FORMATION_DNE.first)
+        val allOwnedPlayers = mapPositionOfPlayerToDraftedPlayersAtSamePosition(playerOfferingTrade)
+        startingPlayers.forEach{
+            if (! allOwnedPlayers.get(it.position)!!.contains(it)) throw ResponseStatusException(STARTING_PLAYER_YOU_DONT_OWN.second,STARTING_PLAYER_YOU_DONT_OWN.first)
+        }
+
+        subs.forEach{
+            if (! allOwnedPlayers.get(it.position)!!.contains(it)) throw ResponseStatusException(STARTING_PLAYER_YOU_DONT_OWN.second,STARTING_PLAYER_YOU_DONT_OWN.first)
+        }
+
+        if (startingPlayers.size != 11) throw ResponseStatusException(WRONG_NUMBER_PLAYERS_LINEUP.second,WRONG_NUMBER_PLAYERS_LINEUP.first)
+        if (startingPlayers.size + subs.size != playerOfferingTrade.draftGroup.numberOfPlayersEachTeam) throw ResponseStatusException(WRONG_NUMBER_PLAYERS_LINEUP.second,WRONG_NUMBER_PLAYERS_LINEUP.first)        
+        
+        val currentGameWeek = gameWeekRepository.findTopByEndGreaterThanEqualOrderByEnd(Instant.now().getEpochSecond())
+
+        val startingLineup = startingPlayers.associate{it.player.name to 0}
+        
+        val subsLineup = subs.mapIndexed{subPriority: Int, sub: PlayerSeason -> Pair(subPriority,sub.player.name)}
+            .associate{it.second to Pair(it.first,0)}
+        // each sub will have their sub priority (how soon they should sub in if a starting player doesn't play) and their number of points
+
+        
+        playerOfferingTrade.pointsByCurrentStarters = startingLineup
+        playerOfferingTrade.pointsByCurrentSubs = subsLineup
+        playerOfferingTrade.gameWeekSummary.put(currentGameWeek.gameWeekName,GameWeekSummary(formation=gameWeekSelection.formation))
+        playerDraftRepository.save(playerOfferingTrade)
     }
 
     // for example, if a midfielder is selected this will map to all remaining midfielders in the league

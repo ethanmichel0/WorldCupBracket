@@ -30,14 +30,14 @@ class User (
     var accountNonLocked: Boolean = true,
     var credentialsNonExpired: Boolean = true,
     var enabled: Boolean = true,
-    var roles: List<String> = listOf<String>("ROLE_USER")
+    var roles: String = "ROLE_USER"
     ) : UserDetails {
         override fun equals(other: Any?): Boolean =
             other is User && other.name == name && other.email == email
         var admin : Boolean = false
         override fun getAuthorities() : List<GrantedAuthority> {
             val authorities = mutableListOf<GrantedAuthority>()
-            for (role in roles) {
+            for (role in roles.split(",")) {
                 authorities.add(SimpleGrantedAuthority(role))
             }
             return authorities

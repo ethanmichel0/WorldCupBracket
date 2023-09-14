@@ -512,29 +512,26 @@ class GameService(private val gameRepository : GameRepository,
         // we only want to add the delta of points since the player received since the last update
 
         println("before current game week query")
-        println("another test dj khalid")
-        println("${gameWeekRepository.findAll()} is all game weeks")
-        val currentGameWeek = gameWeekRepository.findTopByEndGreaterThanEqualOrderByEnd(Instant.now().getEpochSecond())
+
         // TODO test the efficiency of using mongodb's updateMany() api vs bulkWrite api. I think this should be efficient enough, but we may have to do some efficiency testing here
         println("after current game week query")
 
 
         val bulkUpdatesPlayerDrafts = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, "playerdrafts");
-        val bulkUpdatesPlayerSelectionForGameWeek = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, "playerdrafts");
+
         for (pp in playerPerformances) {
             val amountOfPointsSinceLastUpdateDelta = if (amountOfPointsBeforeLastUpdate.get(pp.id) == null) pp.points else (pp.points - amountOfPointsBeforeLastUpdate.get(pp.id)!!)
-            val forwardsCriteria = Criteria.where("draftedForwards").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
-            val midsCriteria = Criteria.where("draftedMidfielders").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
-            val defendersCriteria = Criteria.where("draftedDefenders").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
-            val goalkeepersCriteria = Criteria.where("draftedGoalkeepers").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
-            val anyPositionAndCurrentSeasonCriteria = Criteria().andOperator(Criteria().orOperator(forwardsCriteria,midsCriteria,defendersCriteria,goalkeepersCriteria),
-                Criteria.where("draftGroup.current").`is`(true))
 
-            val playerStartingDuringGameWeek = Criteria.where("startedPlayers").elemMatch(Criteria.where("_id").`is`(pp.playerSeason.id))
-            val relevantDrafts = mongoTemplate.find(Query().addCriteria(anyPositionAndCurrentSeasonCriteria),PlayerDraft::class.java,"playerdrafts")
-            val incrementTotalRoundScore = Update().inc("pointsByGameWeek.${currentGameWeek.gameWeekName}",amountOfPointsSinceLastUpdateDelta)
-            bulkUpdatesPlayerDrafts.updateMulti(Query().addCriteria(anyPositionAndCurrentSeasonCriteria),incrementTotalRoundScore)
+            val startersCriteria = Criteria.where("pointsByCurrentStarters.${pp.playerSeason.player.name}").exists(true)
+            val subsCriteria = Criteria.where("pointsByCurrentSubs.${pp.playerSeason.player.name}").exists(true)
+
+            val incrementStartersScore = Update().inc("pointsByCurrentStarters.${pp.playerSeason.player.name}",amountOfPointsSinceLastUpdateDelta)
+            val incrementSubsScore = Update().inc("pointsByCurrentSubs.${pp.playerSeason.player.name}",amountOfPointsSinceLastUpdateDelta)
+            
+            bulkUpdatesPlayerDrafts.updateMulti(Query().addCriteria(startersCriteria),incrementStartersScore)
+            bulkUpdatesPlayerDrafts.updateMulti(Query().addCriteria(subsCriteria),incrementSubsScore)
         }
+
         val results = bulkUpdatesPlayerDrafts.execute()
     }
 

@@ -404,7 +404,7 @@ class LeagueServiceTests {
         // TODO this will change as the points system is updated
         // assertEquals(2,bobPlayerDraft.draftedForwards.size,"Bob drafted 2 forwards")
         //assertEquals(2,bobPlayerDraft.performancesByRound.get("Premier League Regular Season - 30")!!.size,"2 performacnes")
-        assertEquals(3,bobPlayerDraft.pointsByGameWeek.get("test game week"),"Bob gets a point for the Daka scoring, and Solanke assisting")
+        assertEquals(3,bobPlayerDraft.pointsByGameWeekByStarters.get("test game week"),"Bob gets a point for the Daka scoring, and Solanke assisting")
    }
         
     @AfterAll

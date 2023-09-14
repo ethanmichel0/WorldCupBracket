@@ -8,10 +8,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class UserDetailsService (private val userRepository: UserRepository) : UserDetailsService {
+public class MyUserDetailsService (private val userRepository: UserRepository) : UserDetailsService {
 
     public override fun loadUserByUsername(s: String) : UserDetails {
-        println("IN LOAD USER BY USERNAME")
         val users : List<User> = userRepository.findByName(s);
 
         if (users.size == 0)
